@@ -23,7 +23,7 @@
         </div>
         <div class="brand-text">
           <h1 class="brand-title">Memora</h1>
-          <p class="brand-subtitle">Virtual Memory Simulator • Page Replacement Analysis</p>
+          <p class="brand-subtitle">OS Resource-Management Simulator • Memory, CPU & Deadlock</p>
         </div>
       </div>
       <div class="header-actions">
@@ -36,9 +36,38 @@
     </div>
   </header>
 
+  <!-- Top Module Navigation Bar -->
+  <nav class="module-nav" role="tablist" aria-label="Operating System Resource Management Modules">
+    <div class="nav-container">
+      <button class="module-tab-btn active" data-module="memory" role="tab" aria-selected="true" id="tab-memory">
+        <span class="tab-icon">🧠</span>
+        <div class="tab-text">
+          <span class="tab-title">Virtual Memory</span>
+          <span class="tab-subtitle">FIFO • LRU • Optimal</span>
+        </div>
+      </button>
+      <button class="module-tab-btn" data-module="cpu" role="tab" aria-selected="false" id="tab-cpu">
+        <span class="tab-icon">⚡</span>
+        <div class="tab-text">
+          <span class="tab-title">CPU Scheduling</span>
+          <span class="tab-subtitle">FCFS • SJF • Round Robin</span>
+        </div>
+      </button>
+      <button class="module-tab-btn" data-module="deadlock" role="tab" aria-selected="false" id="tab-deadlock">
+        <span class="tab-icon">🔒</span>
+        <div class="tab-text">
+          <span class="tab-title">Deadlock Avoidance</span>
+          <span class="tab-subtitle">Banker's Algorithm</span>
+        </div>
+      </button>
+    </div>
+  </nav>
+
   <!-- Main Application Body -->
   <main class="app-main">
-    <div class="main-container">
+    <!-- MODULE 1: VIRTUAL MEMORY MANAGEMENT -->
+    <div id="module-memory" class="module-tab-content active" role="tabpanel" aria-labelledby="tab-memory">
+      <div class="main-container">
       
       <!-- Left Column: Controls & Configuration -->
       <aside class="control-panel">
@@ -345,6 +374,420 @@
       </section>
 
     </div>
+    </div>
+
+    <!-- MODULE 2: CPU SCHEDULING -->
+    <div id="module-cpu" class="module-tab-content" role="tabpanel" aria-labelledby="tab-cpu" style="display: none;">
+      <div class="main-container">
+        <!-- Left Column: Controls & Configuration -->
+        <aside class="control-panel">
+          
+          <!-- Preset Workloads Card -->
+          <section class="card config-card">
+            <div class="card-header">
+              <h2 class="card-title">1. CPU Workload Presets</h2>
+              <span class="badge">Presets</span>
+            </div>
+            <div class="preset-buttons" style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
+              <button class="btn btn-preset active" data-cpu-preset="staggered">Standard Staggered Arrivals (P1-P4)</button>
+              <button class="btn btn-preset" data-cpu-preset="simultaneous">Simultaneous Arrival (Convoy Test)</button>
+              <button class="btn btn-preset" data-cpu-preset="idle-gap">CPU Idle Gap (Arrival Delay)</button>
+              <button class="btn btn-preset" data-cpu-preset="convoy">Convoy Effect (Heavy P1)</button>
+            </div>
+          </section>
+
+          <!-- CPU Algorithm Selection Card -->
+          <section class="card config-card">
+            <div class="card-header">
+              <h2 class="card-title">2. Select Scheduler</h2>
+              <span class="badge" id="cpu-algo-badge">FCFS</span>
+            </div>
+            <div class="algo-selector" role="radiogroup" aria-label="CPU Scheduling Algorithm">
+              <label class="algo-option active" data-cpu-algo="FCFS">
+                <input type="radio" name="cpu-algorithm" value="FCFS" checked>
+                <div class="algo-info">
+                  <span class="algo-name">FCFS</span>
+                  <span class="algo-tag">First-Come, First-Served</span>
+                </div>
+              </label>
+              <label class="algo-option" data-cpu-algo="SJF">
+                <input type="radio" name="cpu-algorithm" value="SJF">
+                <div class="algo-info">
+                  <span class="algo-name">SJF</span>
+                  <span class="algo-tag">Shortest Job First (Non-Preemptive)</span>
+                </div>
+              </label>
+              <label class="algo-option" data-cpu-algo="RR">
+                <input type="radio" name="cpu-algorithm" value="RR">
+                <div class="algo-info">
+                  <span class="algo-name">Round Robin</span>
+                  <span class="algo-tag">Preemptive Time Slicing</span>
+                </div>
+              </label>
+            </div>
+
+            <!-- Time Quantum (For Round Robin) -->
+            <div class="form-group" id="tq-input-group" style="margin-top: 1rem;">
+              <div class="label-row">
+                <label for="cpu-time-quantum">Time Quantum (q):</label>
+                <span class="badge badge-accent" id="tq-badge">2 ms</span>
+              </div>
+              <div class="frame-stepper">
+                <button type="button" class="btn-stepper" id="btn-tq-dec" aria-label="Decrease Quantum">-</button>
+                <input type="number" id="cpu-time-quantum" min="1" max="50" value="2" class="input-stepper">
+                <button type="button" class="btn-stepper" id="btn-tq-inc" aria-label="Increase Quantum">+</button>
+              </div>
+              <p class="field-hint">Time quantum controls preemption slice for Round Robin.</p>
+            </div>
+
+            <div class="algo-description" id="cpu-algo-desc">
+              <strong>FCFS (First-Come First-Served):</strong> Non-preemptive scheduling in order of process arrival. Susceptible to the Convoy Effect.
+            </div>
+          </section>
+
+          <!-- Process Workload Table Editor -->
+          <section class="card config-card">
+            <div class="card-header">
+              <h2 class="card-title">3. Process Workload Editor</h2>
+              <button class="btn btn-secondary btn-sm" id="btn-add-process" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;">+ Add Process</button>
+            </div>
+            <div class="table-container" style="max-height: 240px; overflow-y: auto;">
+              <table class="comp-table" id="process-input-table">
+                <thead>
+                  <tr>
+                    <th>PID</th>
+                    <th>Arrival</th>
+                    <th>Burst</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="process-table-body">
+                  <!-- Rows populated dynamically -->
+                </tbody>
+              </table>
+            </div>
+
+            <div class="action-buttons" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+              <button class="btn btn-primary btn-block" id="btn-run-cpu">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                <span>Run CPU Simulation</span>
+              </button>
+              <button class="btn btn-accent btn-block" id="btn-compare-cpu">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                <span>Compare All 3 Schedulers</span>
+              </button>
+              <button class="btn btn-secondary btn-block" id="btn-reset-cpu">Reset Workload</button>
+            </div>
+          </section>
+
+        </aside>
+
+        <!-- Right Column: Gantt Chart, Process Metrics, and Comparison -->
+        <section class="simulation-view">
+
+          <!-- KPI Metric Cards -->
+          <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
+            <div class="metric-card">
+              <span class="metric-label">Avg Waiting (AWT)</span>
+              <div class="metric-value-row">
+                <span class="metric-value" id="cpu-val-awt">-</span>
+                <span class="metric-unit">ms</span>
+              </div>
+              <span class="metric-subtext">Sum(WT) / N</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Avg Turnaround (ATAT)</span>
+              <div class="metric-value-row">
+                <span class="metric-value" id="cpu-val-atat">-</span>
+                <span class="metric-unit">ms</span>
+              </div>
+              <span class="metric-subtext">Sum(CT - AT) / N</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Avg Response (ART)</span>
+              <div class="metric-value-row">
+                <span class="metric-value" id="cpu-val-art">-</span>
+                <span class="metric-unit">ms</span>
+              </div>
+              <span class="metric-subtext">Sum(First - AT) / N</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">CPU Utilization</span>
+              <div class="metric-value-row">
+                <span class="metric-value" id="cpu-val-util">-</span>
+                <span class="metric-unit">%</span>
+              </div>
+              <span class="metric-subtext">Busy / Total Time</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Throughput</span>
+              <div class="metric-value-row">
+                <span class="metric-value" id="cpu-val-tp">-</span>
+                <span class="metric-unit">p/ms</span>
+              </div>
+              <span class="metric-subtext">Processes / Total</span>
+            </div>
+          </div>
+
+          <!-- Interactive Gantt Chart Card -->
+          <div class="card visualizer-card">
+            <div class="card-header">
+              <h2 class="card-title">Interactive CPU Gantt Chart</h2>
+              <span class="badge" id="cpu-gantt-badge">Timeline</span>
+            </div>
+            <div class="gantt-chart-container" id="gantt-chart-wrapper" style="padding: 1.5rem 0.5rem; overflow-x: auto;">
+              <div id="gantt-timeline-bar" class="gantt-timeline-bar">
+                <!-- Segments generated via JS -->
+              </div>
+              <div id="gantt-ticks" class="gantt-ticks">
+                <!-- Ticks generated via JS -->
+              </div>
+            </div>
+            <div class="gantt-legend" id="gantt-legend" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; font-size: 0.82rem;">
+              <!-- Color legend generated via JS -->
+            </div>
+          </div>
+
+          <!-- Process Metrics Table Card -->
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Process Schedule Metrics Breakdown</h2>
+              <span class="badge">Per-Process Results</span>
+            </div>
+            <div class="table-container">
+              <table class="comp-table" id="cpu-results-table">
+                <thead>
+                  <tr>
+                    <th>PID</th>
+                    <th>Arrival (AT)</th>
+                    <th>Burst (BT)</th>
+                    <th>Completion (CT)</th>
+                    <th>Turnaround (TAT)</th>
+                    <th>Waiting (WT)</th>
+                    <th>Response (RT)</th>
+                  </tr>
+                </thead>
+                <tbody id="cpu-results-tbody">
+                  <!-- Populated via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- CPU Algorithm Comparison Section -->
+          <div class="card" id="cpu-comparison-section" style="display: none;">
+            <div class="card-header">
+              <h2 class="card-title">Comparative Analysis: FCFS vs. SJF vs. Round Robin</h2>
+              <span class="badge badge-accent">Side-by-Side</span>
+            </div>
+            <div class="table-container">
+              <table class="comp-table" id="cpu-comp-table">
+                <thead>
+                  <tr>
+                    <th>Algorithm</th>
+                    <th>Avg Waiting (AWT)</th>
+                    <th>Avg Turnaround (ATAT)</th>
+                    <th>Avg Response (ART)</th>
+                    <th>CPU Util (%)</th>
+                    <th>Throughput</th>
+                    <th>Performance Rank</th>
+                  </tr>
+                </thead>
+                <tbody id="cpu-comp-tbody">
+                  <!-- Populated via JS -->
+                </tbody>
+              </table>
+            </div>
+            <div class="best-algo-card" id="cpu-winner-banner" style="margin-top: 1rem;">
+              <span class="best-label">Academic Evaluation:</span>
+              <span class="best-title" id="cpu-winner-title">Comparative Analysis Complete</span>
+              <p class="best-explanation" id="cpu-winner-explanation"></p>
+            </div>
+          </div>
+
+        </section>
+      </div>
+    </div>
+
+    <!-- MODULE 3: DEADLOCK MANAGEMENT -->
+    <div id="module-deadlock" class="module-tab-content" role="tabpanel" aria-labelledby="tab-deadlock" style="display: none;">
+      <div class="main-container">
+        <!-- Left Column: Matrices & Request Controls -->
+        <aside class="control-panel">
+          
+          <!-- Presets Card -->
+          <section class="card config-card">
+            <div class="card-header">
+              <h2 class="card-title">1. Scenario Presets</h2>
+              <span class="badge">Banker's Presets</span>
+            </div>
+            <div class="preset-buttons" style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
+              <button class="btn btn-preset active" data-deadlock-preset="classic">Classic Textbook Safe State (5 Proc, 3 Res)</button>
+              <button class="btn btn-preset" data-deadlock-preset="unsafe">Unsafe State Scenario (Deadlock Risk)</button>
+              <button class="btn btn-preset" data-deadlock-preset="single">Single Resource Type System</button>
+            </div>
+          </section>
+
+          <!-- System Vectors & Matrices Input Card -->
+          <section class="card config-card">
+            <div class="card-header">
+              <h2 class="card-title">2. Resource Configuration</h2>
+              <span class="badge">Matrices</span>
+            </div>
+            
+            <div class="form-group">
+              <label for="dl-available-input">Available Resource Vector:</label>
+              <input type="text" id="dl-available-input" class="input-text" value="3, 3, 2" placeholder="e.g. 3, 3, 2">
+              <p class="field-hint">Current unallocated instances of each resource type.</p>
+            </div>
+
+            <div class="form-group">
+              <label for="dl-resources-input">Resource Names (Optional):</label>
+              <input type="text" id="dl-resources-input" class="input-text" value="A, B, C" placeholder="e.g. A, B, C">
+            </div>
+
+            <div class="form-group">
+              <label for="dl-allocation-input">Allocation Matrix (n rows, comma/space):</label>
+              <textarea id="dl-allocation-input" class="input-textarea" rows="5" style="width: 100%; font-family: var(--font-mono); font-size: 0.88rem; padding: 0.6rem; border-radius: var(--radius-md); background: var(--bg-surface-elevated); border: 1px solid var(--border-color); color: var(--text-primary);">0 1 0
+2 0 0
+3 0 2
+2 1 1
+0 0 2</textarea>
+              <p class="field-hint">Currently held resource instances per process.</p>
+            </div>
+
+            <div class="form-group">
+              <label for="dl-max-input">Maximum Claim Matrix (n rows):</label>
+              <textarea id="dl-max-input" class="input-textarea" rows="5" style="width: 100%; font-family: var(--font-mono); font-size: 0.88rem; padding: 0.6rem; border-radius: var(--radius-md); background: var(--bg-surface-elevated); border: 1px solid var(--border-color); color: var(--text-primary);">7 5 3
+3 2 2
+9 0 2
+2 2 2
+4 3 3</textarea>
+              <p class="field-hint">Maximum declared claim per process.</p>
+            </div>
+
+            <button class="btn btn-primary btn-block" id="btn-check-safety">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+              <span>Run Banker's Safety Check</span>
+            </button>
+          </section>
+
+          <!-- Dynamic Resource Request Simulation Card -->
+          <section class="card config-card">
+            <div class="card-header">
+              <h2 class="card-title">3. Dynamic Resource Request</h2>
+              <span class="badge">Request Algorithm</span>
+            </div>
+            
+            <div class="form-group">
+              <label for="dl-request-proc">Requesting Process:</label>
+              <select id="dl-request-proc" class="input-select" style="width: 100%; padding: 0.6rem; border-radius: var(--radius-md); background: var(--bg-surface-elevated); border: 1px solid var(--border-color); color: var(--text-primary); font-family: var(--font-sans);">
+                <option value="0">P0</option>
+                <option value="1" selected>P1</option>
+                <option value="2">P2</option>
+                <option value="3">P3</option>
+                <option value="4">P4</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="dl-request-vector">Requested Resources:</label>
+              <input type="text" id="dl-request-vector" class="input-text" value="1, 0, 2" placeholder="e.g. 1, 0, 2">
+              <p class="field-hint">Test if granting this request keeps system in a safe state.</p>
+            </div>
+
+            <button class="btn btn-accent btn-block" id="btn-eval-request">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+              <span>Evaluate Resource Request</span>
+            </button>
+          </section>
+
+        </aside>
+
+        <!-- Right Column: Safety Verdict, Need Matrix, Trace, and Request Result -->
+        <section class="simulation-view">
+
+          <!-- Safety Verdict Banner -->
+          <div class="card" id="dl-verdict-card">
+            <div class="dl-status-banner safe" id="dl-status-banner">
+              <div class="status-icon" id="dl-status-icon">🛡️</div>
+              <div class="status-content">
+                <h2 class="status-heading" id="dl-status-heading">SYSTEM IS IN A SAFE STATE</h2>
+                <p class="status-explanation" id="dl-status-desc">All processes can finish without deadlocking under maximum claim execution.</p>
+              </div>
+            </div>
+
+            <div class="safe-sequence-box" id="dl-safe-sequence-wrapper" style="margin-top: 1rem;">
+              <span class="seq-label" style="font-size: 0.85rem; color: var(--text-secondary); margin-right: 0.5rem;">Verified Safe Sequence:</span>
+              <div class="seq-badges" id="dl-safe-sequence-badges" style="display: inline-flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <!-- Badges e.g. P1 -> P3 -> P0 -> P2 -> P4 -->
+              </div>
+            </div>
+          </div>
+
+          <!-- System Matrices Snapshot: Allocation, Max, and Computed Need -->
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">System State & Dynamically Computed Need Matrix</h2>
+              <span class="badge">Need = Max - Allocation</span>
+            </div>
+            <div class="table-container">
+              <table class="comp-table" id="dl-matrices-table">
+                <thead>
+                  <tr>
+                    <th>Process</th>
+                    <th>Allocation</th>
+                    <th>Maximum Claim</th>
+                    <th>Remaining Need</th>
+                  </tr>
+                </thead>
+                <tbody id="dl-matrices-tbody">
+                  <!-- Populated via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Step-by-Step Execution Trace Table -->
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Banker's Safety Algorithm Execution Trace</h2>
+              <span class="badge">Step-by-Step Allocation</span>
+            </div>
+            <div class="table-container">
+              <table class="comp-table" id="dl-steps-table">
+                <thead>
+                  <tr>
+                    <th>Step</th>
+                    <th>Process</th>
+                    <th>Work Before</th>
+                    <th>Need</th>
+                    <th>Allocation</th>
+                    <th>Work After</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="dl-steps-tbody">
+                  <!-- Populated via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Dynamic Resource Request Evaluation Output Card -->
+          <div class="card" id="dl-request-result-card" style="display: none;">
+            <div class="card-header">
+              <h2 class="card-title">Dynamic Resource Request Evaluation Result</h2>
+              <span class="badge" id="dl-request-badge">Decision</span>
+            </div>
+            <div class="request-result-content" id="dl-request-content" style="padding: 1rem 0;">
+              <!-- Populated via JS -->
+            </div>
+          </div>
+
+        </section>
+      </div>
+    </div>
   </main>
 
   <!-- Toast Notification Container -->
@@ -354,10 +797,10 @@
   <footer class="app-footer">
     <div class="footer-container">
       <div class="footer-left">
-        <strong>Memora</strong> — A Virtual Memory Simulator for Page Replacement Algorithm Analysis
+        <strong>Memora</strong> — Integrated Operating Systems Resource-Management Simulator
       </div>
       <div class="footer-right">
-        <code>Hits + Faults = Total</code> • <code>Hit Ratio = H / N</code> • <code>Fault Ratio = F / N</code>
+        <code>TAT = CT - AT</code> • <code>WT = TAT - BT</code> • <code>Need = Max - Alloc</code> • <code>Hit Ratio = H / N</code>
       </div>
     </div>
   </footer>

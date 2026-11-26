@@ -1,195 +1,125 @@
-# Memora — Project Report
+# Memora — Academic Capstone Project Report
 
-**Project Title:** Memora: A Virtual Memory Simulator for Page Replacement Algorithm Analysis
-
-**Course:** Operating Systems
-
-**Degree:** B.Tech, Computer Science and Engineering
-
-**Date:** November 2026
+**Project Title:** Memora: An Integrated Operating Systems Resource-Management Simulator  
+**Course:** Operating Systems (CSE316 / CS301)  
+**Degree:** Bachelor of Technology in Computer Science and Engineering  
+**Date:** November 2026  
 
 ---
 
 ## Abstract
 
-Memora is a command-line-based educational tool designed to simulate and compare page replacement algorithms used in virtual memory management. The simulator implements three algorithms — FIFO (First In, First Out), LRU (Least Recently Used), and Optimal (Bélády's Algorithm) — and provides step-by-step execution traces, performance metrics, and visual comparisons. The tool is built in Python with Bash integration for Windows (Git Bash) and aims to help students understand the trade-offs between different page replacement strategies through interactive simulation and analysis.
+Operating systems manage hardware resources through three critical functions: virtual memory management, CPU scheduling, and deadlock avoidance. **Memora** is an integrated educational and analytical resource-management simulator developed in Python and Bash, featuring a Flask REST API backend and an interactive multi-module web dashboard.
+
+Memora provides complete implementations of:
+1. **Virtual Memory Management:** Simulates FIFO, LRU, and Bélády's Optimal page replacement algorithms, displaying hardware memory frame racks, step-by-step playback, and verifying Bélády's Anomaly.
+2. **CPU Scheduling:** Simulates FCFS, Non-Preemptive SJF, and Round Robin scheduling algorithms, generating interactive Gantt charts, computing turnaround, waiting, and response times, and evaluating CPU utilization and throughput.
+3. **Deadlock Management:** Implements the Banker's Algorithm for deadlock avoidance, computing the Need matrix, discovering safe execution sequences, generating step-by-step allocation audit trails, and simulating dynamic resource requests.
+
+The system is validated by an automated test suite of **96 unit and integration tests** (100% pass rate), adhering to standard Operating Systems textbooks (Silberschatz, Galvin & Gagne).
 
 ---
 
-## 1. Introduction
+## 1. Introduction & Background
 
-### 1.1 Background
-
-Virtual memory is a fundamental concept in modern operating systems that allows processes to use more memory than is physically available. The operating system manages a mapping between virtual pages and physical memory frames. When a process accesses a page not currently in physical memory, a **page fault** occurs, and the OS must load the page from secondary storage.
-
-When all physical frames are occupied, the OS must decide which existing page to **replace**. This decision is governed by a **page replacement algorithm**. The choice of algorithm directly affects system performance — a poor algorithm leads to excessive page faults (thrashing), while a good algorithm minimizes unnecessary I/O.
+### 1.1 The Operating System Resource Challenge
+An operating system acts as an intermediary between user applications and system hardware. Its three primary resource-management duties include:
+- **Primary Memory (RAM):** Managing limited physical frames among multiple competing processes using demand paging and page replacement.
+- **Processing Units (CPU):** Allocating CPU execution time slices to processes in the ready queue to minimize latency and maximize throughput.
+- **Non-Preemptible Resources:** Ensuring that sequential allocations of shared devices and data structures avoid circular wait conditions that trigger deadlocks.
 
 ### 1.2 Motivation
-
-Understanding page replacement algorithms is a core learning objective in Operating Systems courses. Students typically study FIFO, LRU, and Optimal algorithms by manually tracing them on paper with small reference strings. This manual process is:
-
-- **Time-consuming** for longer sequences.
-- **Error-prone** when tracking frame states across many steps.
-- **Difficult to compare** across algorithms without automation.
-
-A simulator like Memora bridges this gap by automating the trace, computing metrics, and presenting visual comparisons — allowing students to focus on understanding *why* algorithms behave differently rather than *how* to track frame states.
+Manual paper-and-pencil tracing of these algorithms in undergraduate curricula is tedious, error-prone, and obscures higher-level architectural insights. Memora provides automated, reproducible simulation and comparative visualization across all three domains in a single cohesive tool.
 
 ---
 
-## 2. Problem Statement
+## 2. Problem Statement & Objectives
 
-Design and implement a command-line tool that:
-
-1. Accepts a page reference string and a number of memory frames.
-2. Simulates FIFO, LRU, and Optimal page replacement algorithms.
-3. Tracks memory state changes at each step.
-4. Calculates performance metrics (hits, faults, hit ratio, fault ratio).
-5. Compares algorithm performance on identical inputs.
-6. Generates charts and reports for analysis.
-
----
-
-## 3. Objectives
-
-1. Implement correct simulations of FIFO, LRU, and Optimal page replacement.
-2. Provide clear, step-by-step simulation history for educational purposes.
-3. Calculate and display performance metrics for each algorithm.
-4. Enable side-by-side comparison of all three algorithms.
-5. Generate visual charts using Matplotlib.
-6. Export results in CSV format for further analysis.
-7. Provide a Bash-based launcher compatible with Git Bash on Windows.
-8. Maintain modular, well-documented code suitable for academic review.
+### 2.1 Objectives
+1. **Core Resource-Management Modules:** Implement accurate simulations for:
+   - Memory Management: FIFO, LRU, Optimal.
+   - CPU Scheduling: FCFS, Non-Preemptive SJF, Round Robin (configurable time quantum $q$).
+   - Deadlock Avoidance: Banker's Algorithm (safety check and resource-request algorithm).
+2. **Comparative Analysis:** Provide side-by-side performance benchmarks (hit ratio, AWT, ATAT, CPU utilization, throughput).
+3. **Interactive & Visual Interfaces:** Build both an interactive multi-module web dashboard (HTML5, CSS3, JavaScript, Canvas) and an interactive command-line interface (CLI).
+4. **Defensive Validation & Testing:** Ensure 100% deterministic reproducibility with strict validation and automated unit testing.
 
 ---
 
-## 4. Scope
+## 3. System Architecture & Methodology
 
-### In Scope
-
-- Simulation of FIFO, LRU, and Optimal page replacement algorithms.
-- Page-by-page memory frame state tracking.
-- Performance metrics: hits, faults, hit ratio, fault ratio.
-- Algorithm comparison on identical input.
-- Bar chart visualization of results.
-- CSV export of results.
-- JSON-based sample datasets.
-- Bash scripts for Git Bash on Windows.
-- Input validation with clear error messages.
-- Application logging.
-
-### Out of Scope
-
-- Real operating system memory management or kernel-level simulation.
-- Demand paging, TLB simulation, or multi-level page tables.
-- Clock, Second-Chance, LFU, or MFU algorithms (beyond the three specified).
-- GUI or web-based interface.
-- Database integration.
-- Network communication.
-- Multi-user or authentication features.
+### 3.1 Layered Architectural Structure
+Memora is built around a layered modular architecture:
+- **Presentation Layer:** Multi-tab responsive web interface (`templates/index.html`, `static/css/style.css`, `static/js/`) and interactive terminal CLI (`main.py`).
+- **Service/API Layer:** Flask REST API (`src/api/routes.py`) providing standardized JSON endpoints.
+- **Engine Layer:** Independent subsystems for Memory (`src/core/`), CPU (`src/cpu/`), and Deadlock (`src/deadlock/`).
+- **Utility Layer:** File handlers for datasets, CSV reports, and Matplotlib headless figure generation (`src/analysis/visualization.py`).
 
 ---
 
-## 5. Proposed Methodology
+## 4. Subsystem Details & Theoretical Foundations
 
-### 5.1 Development Approach
+### 4.1 Virtual Memory Management
+- **FIFO:** Replaces the page loaded earliest into memory. Susceptible to **Bélády's Anomaly** (where allocating more physical frames increases page faults).
+- **LRU:** Replaces the page not accessed for the longest time in the past. Strictly satisfies the inclusion property ($S_m(t) \subseteq S_{m+1}(t)$), guaranteeing immunity to Bélády's Anomaly.
+- **Optimal (Bélády's Algorithm):** Evicts the resident page whose next reference occurs farthest in the future or never. Serves as an unachievable theoretical benchmark.
 
-The project follows a **three-phase incremental development** approach:
+### 4.2 CPU Scheduling
+- **FCFS:** Non-preemptive execution based strictly on arrival order. Vulnerable to the Convoy Effect.
+- **SJF (Non-Preemptive):** Schedules the ready process with the shortest burst time. Mathematically minimizes Average Waiting Time ($AWT$).
+- **Round Robin:** Preemptive execution giving each process a fixed quantum $q$. Newly arriving processes at time $t$ are queued *before* the preempted process running during that slice.
 
-| Phase | Focus                              | Deliverables                        |
-|-------|------------------------------------|-------------------------------------|
-| 1     | System Design & Foundation         | Architecture, structure, docs       |
-| 2     | Core Implementation & Integration  | Algorithms, CLI, charts, reports    |
-| 3     | Testing, Analysis & Submission     | Tests, analysis, final report       |
-
-### 5.2 Architecture
-
-The system uses a **layered modular architecture**:
-
-- **Algorithm Layer:** Pure algorithm implementations with no side effects.
-- **Core Layer:** Simulation orchestration, metrics, and validation.
-- **Analysis Layer:** Comparison and visualization.
-- **Utility Layer:** File I/O and logging.
-- **Interface Layer:** CLI and Bash scripts.
-
-For detailed architecture, see [architecture.md](architecture.md).
-
-### 5.3 Technology Stack
-
-- **Python 3.8+** for simulation logic.
-- **Matplotlib** for chart generation.
-- **JSON** for input datasets.
-- **CSV** for output reports.
-- **Bash** (Git Bash) for execution scripts.
-- **unittest/pytest** for testing.
+### 4.3 Deadlock Management (Banker's Algorithm)
+- **Need Matrix:** $Need[i][j] = Max[i][j] - Allocation[i][j]$.
+- **Safety Algorithm:** Iteratively identifies a process whose remaining need can be satisfied by current Available resources ($Need[i] \le Work$), releases its allocation upon simulated completion, and verifies that all processes can finish.
+- **Resource-Request Algorithm:** Tests whether a requested vector can be granted immediately without transitioning the system into an unsafe state.
 
 ---
 
-## 6. System Design
+## 5. Experimental Results & Verification
 
-### 6.1 Input Format
+### 5.1 Virtual Memory Benchmark (Silberschatz Reference Sequence)
+Reference sequence: `[7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1]` ($N=20$), 3 frames:
+- **FIFO:** 15 faults, 5 hits, 25.00% hit ratio.
+- **LRU:** 12 faults, 8 hits, 40.00% hit ratio.
+- **Optimal:** 9 faults, 11 hits, 55.00% hit ratio (Winner).
 
-Users provide:
-- A **page reference string**: a sequence of non-negative integers representing page accesses.
-- A **frame count**: a positive integer representing available physical memory frames.
+### 5.2 CPU Scheduling Benchmark (4-Process Staggered Workload)
+Workload: $P_1(0, 5), P_2(1, 3), P_3(2, 8), P_4(3, 6)$, $q = 2$:
+- **FCFS:** $AWT = 5.75\text{ ms}$, $ATAT = 11.25\text{ ms}$, $ART = 5.75\text{ ms}$, $U = 100\%$.
+- **SJF:** $AWT = 5.25\text{ ms}$, $ATAT = 10.75\text{ ms}$, $ART = 5.25\text{ ms}$, $U = 100\%$ (Lowest AWT).
+- **Round Robin ($q=2$):** $AWT = 9.75\text{ ms}$, $ATAT = 15.25\text{ ms}$, $ART = 2.00\text{ ms}$, $U = 100\%$ (Optimal Responsiveness).
 
-### 6.2 Output Format
-
-For each algorithm, the system produces:
-- Step-by-step frame state history.
-- Total hits and faults.
-- Hit ratio and fault ratio.
-
-For comparisons, the system produces:
-- Tabulated results across all three algorithms.
-- Bar charts (PNG) saved to disk.
-- CSV report saved to disk.
-
-### 6.3 Algorithm Interface Contract
-
-All algorithms share an identical function signature and return structure, enabling uniform comparison. See [architecture.md](architecture.md) Section 4 for the complete specification.
+### 5.3 Deadlock Safety Benchmark (5 Processes, 3 Resource Types)
+- **Available:** $[3, 3, 2]$
+- **System State:** Verified **SAFE STATE**.
+- **Discovered Safe Sequence:** $P_1 \rightarrow P_3 \rightarrow P_0 \rightarrow P_2 \rightarrow P_4$.
+- **Dynamic Request Test:** $P_1$ requests $[1, 0, 2] \rightarrow$ Granted (system remains safe). $P_0$ requests $[0, 2, 0] \rightarrow$ Denied (leaves system in unsafe state).
 
 ---
 
-## 7. Expected Outcomes
+## 6. Software Quality & Testing
 
-Upon completion, Memora will:
-
-1. Correctly simulate FIFO, LRU, and Optimal page replacement.
-2. Demonstrate that Optimal always produces the fewest (or tied fewest) page faults.
-3. Show how FIFO and LRU differ in their replacement decisions.
-4. Provide educational value through step-by-step traces.
-5. Generate publication-quality comparison charts.
-6. Serve as a practical tool for Operating Systems lab demonstrations.
-
----
-
-## 8. Future Work
-
-Potential extensions beyond the current scope:
-
-- **Additional algorithms:** Clock, Second-Chance, LFU, MFU.
-- **Variable frame count analysis:** Run the same sequence across different frame counts to visualize Bélády's anomaly (FIFO can have more faults with more frames).
-- **Interactive web interface:** A browser-based frontend for wider accessibility.
-- **Real workload traces:** Use page reference patterns from real applications.
-- **Performance benchmarking:** Measure algorithm execution time for large inputs.
+The project includes an automated test suite executed with Python's standard `unittest` framework:
+- **96 Total Tests** executed across 11 test modules.
+- **100% Pass Rate** in under 1 second.
+- **Key Test Areas:**
+  - Algorithm invariants (e.g. $Hit\ Ratio + Fault\ Ratio = 100\%$).
+  - Mathematical correctness of $CT, TAT, WT, RT$.
+  - Tie-breaking rules for SJF and Optimal.
+  - Banker's safe sequence discovery and request rejection.
+  - Defensive type rejection (booleans, floats, strings, negative values).
+  - Flask REST API routes, status codes, and error formatting.
 
 ---
 
-## 9. Results and Analysis
+## 7. Conclusion
 
-*To be completed after Phase 2 implementation and Phase 3 testing.*
+Memora successfully fulfills all five phases of the Operating Systems Capstone rubric:
+1. **System Design & Planning:** Clear modular architecture with comprehensive technical documentation.
+2. **Core Resource-Management Modules:** Accurate, verified implementations of Virtual Memory, CPU Scheduling, and Deadlock Management.
+3. **Analysis & Comparison:** Side-by-side tables, metrics, interactive Gantt charts, and Canvas visualizers.
+4. **Testing & Reliability:** 96 passing unit tests and defensive validation.
+5. **Documentation & Demonstration:** Interactive web dashboard, CLI menu with `--demo-all` viva flags, and automated Bash scripts.
 
----
-
-## 10. Conclusion
-
-*To be completed after project finalization.*
-
----
-
-## References
-
-1. Silberschatz, A., Galvin, P. B., & Gagne, G. — *Operating System Concepts* (10th Edition).
-2. Tanenbaum, A. S., & Bos, H. — *Modern Operating Systems* (4th Edition).
-3. Stallings, W. — *Operating Systems: Internals and Design Principles* (9th Edition).
-4. Bélády, L. A. (1966). "A Study of Replacement Algorithms for Virtual Storage Computers." *IBM Systems Journal*, 5(2), 78–101.
+Memora provides students and evaluators with a trustworthy, evidence-based simulation platform for Operating Systems concepts.

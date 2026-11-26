@@ -1,13 +1,10 @@
 #!/bin/bash
 # ==============================================================================
 # Memora — batch_simulation.sh
-# Automates running simulations across all sample datasets.
+# Automates running simulations across predefined datasets.
 #
-# Usage (from Git Bash on Windows):
+# Usage (from Git Bash on Windows or Linux):
 #   bash bash/batch_simulation.sh
-#
-# This script executes simulations across all predefined datasets in
-# datasets/sample_input.json and exports aggregated reports to results/reports/.
 # ==============================================================================
 
 set -e
@@ -15,21 +12,24 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-echo "============================================"
-echo "  Memora — Batch Simulation"
-echo "============================================"
+echo "========================================================================"
+echo "  Memora — Automated Batch Simulation Runner"
+echo "========================================================================"
 echo ""
 
 # Activate venv if available
 VENV_ACTIVATE="$PROJECT_ROOT/venv/Scripts/activate"
 ALT_VENV_ACTIVATE="$PROJECT_ROOT/.venv/Scripts/activate"
+LINUX_VENV="$PROJECT_ROOT/venv/bin/activate"
+
 if [ -f "$VENV_ACTIVATE" ]; then
     source "$VENV_ACTIVATE"
 elif [ -f "$ALT_VENV_ACTIVATE" ]; then
     source "$ALT_VENV_ACTIVATE"
+elif [ -f "$LINUX_VENV" ]; then
+    source "$LINUX_VENV"
 fi
 
-# Check for datasets
 DATASET_FILE="$PROJECT_ROOT/datasets/sample_input.json"
 if [ ! -f "$DATASET_FILE" ]; then
     echo "  [ERROR] Dataset file not found: $DATASET_FILE"

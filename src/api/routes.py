@@ -11,6 +11,8 @@ from flask import Blueprint, jsonify, request
 from src.core.simulator import run_simulation
 from src.analysis.comparison import compare_algorithms
 from src.core.validator import validate_page_sequence, validate_frame_count
+from src.cpu.scheduler import run_cpu_scheduler, compare_cpu_schedulers
+from src.deadlock.bankers import check_safety, simulate_resource_request
 
 
 api_bp = Blueprint("api", __name__)
@@ -195,3 +197,193 @@ def compare():
     }
 
     return jsonify(response_data), 200
+
+
+# =============================================================================
+# CPU Scheduling Routes
+# =============================================================================
+
+@api_bp.route("/cpu/schedule", methods=["POST"])
+def cpu_schedule():
+    """
+    Run one CPU scheduling algorithm simulation (FCFS, SJF, or RR).
+
+    Expected JSON body:
+        {
+            "algorithm": "FCFS" | "SJF" | "RR",
+            "processes": [
+                {"id": "P1", "arrival_time": 0, "burst_time": 5},
+                ...
+            ],
+            "time_quantum": 2  # Required for RR
+        }
+    """
+    if not request.is_json:
+        return _error_response("Invalid input", "Request body must be valid JSON.", 400)
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return _error_response("Invalid input", "Request body must be a JSON object.", 400)
+
+    algo = data.get("algorithm")
+    processes = data.get("processes")
+    time_quantum = data.get("time_quantum", 2)
+
+    if not algo:
+        return _error_response("Invalid input", "Missing required field: 'algorithm'.", 400)
+    if processes is None:
+        return _error_response("Invalid input", "Missing required field: 'processes'.", 400)
+
+    try:
+        result = run_cpu_scheduler(algo, processes, time_quantum=time_quantum)
+    except ValueError as ve:
+        return _error_response("Validation error", str(ve), 400)
+    except Exception as e:
+        return _error_response("Scheduling error", str(e), 500)
+
+    return jsonify(result), 200
+
+
+@api_bp.route("/cpu/compare", methods=["POST"])
+def cpu_compare():
+    """
+    Compare FCFS, SJF, and Round Robin on identical process inputs.
+
+    Expected JSON body:
+        {
+            "processes": [
+                {"id": "P1", "arrival_time": 0, "burst_time": 5},
+                ...
+            ],
+            "time_quantum": 2
+        }
+    """
+    if not request.is_json:
+        return _error_response("Invalid input", "Request body must be valid JSON.", 400)
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return _error_response("Invalid input", "Request body must be a JSON object.", 400)
+
+    processes = data.get("processes")
+    time_quantum = data.get("time_quantum", 2)
+
+    if processes is None:
+        return _error_response("Invalid input", "Missing required field: 'processes'.", 400)
+
+    try:
+        comparison = compare_cpu_schedulers(processes, time_quantum=time_quantum)
+    except ValueError as ve:
+        return _error_response("Validation error", str(ve), 400)
+    except Exception as e:
+        return _error_response("Comparison error", str(e), 500)
+
+    return jsonify(comparison), 200
+
+
+# =============================================================================
+# Deadlock Management Routes (Banker's Algorithm)
+# =============================================================================
+
+@api_bp.route("/deadlock/safety", methods=["POST"])
+def deadlock_safety():
+    """
+    Execute Banker's Safety Algorithm to determine safe state and safe sequence.
+
+    Expected JSON body:
+        {
+            "available": [3, 3, 2],
+            "allocation": [[0, 1, 0], [2, 0, 0], ...],
+            "max": [[7, 5, 3], [3, 2, 2], ...],
+            "process_names": ["P0", "P1", ...],    # optional
+            "resource_names": ["A", "B", ...]      # optional
+        }
+    """
+    if not request.is_json:
+        return _error_response("Invalid input", "Request body must be valid JSON.", 400)
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return _error_response("Invalid input", "Request body must be a JSON object.", 400)
+
+    for field in ["available", "allocation", "max"]:
+        if field not in data:
+            return _error_response("Invalid input", f"Missing required field: '{field}'.", 400)
+
+    available = data["available"]
+    allocation = data["allocation"]
+    max_matrix = data["max"]
+    process_names = data.get("process_names")
+    resource_names = data.get("resource_names")
+
+    try:
+        safety_eval = check_safety(
+            available=available,
+            allocation=allocation,
+            max_matrix=max_matrix,
+            process_names=process_names,
+            resource_names=resource_names,
+        )
+    except ValueError as ve:
+        return _error_response("Validation error", str(ve), 400)
+    except Exception as e:
+        return _error_response("Safety check error", str(e), 500)
+
+    return jsonify(safety_eval), 200
+
+
+@api_bp.route("/deadlock/request", methods=["POST"])
+def deadlock_request():
+    """
+    Evaluate a process resource request using Banker's Resource-Request Algorithm.
+
+    Expected JSON body:
+        {
+            "available": [3, 3, 2],
+            "allocation": [[0, 1, 0], ...],
+            "max": [[7, 5, 3], ...],
+            "process_index": 1,
+            "request": [1, 0, 2],
+            "process_names": ["P0", "P1", ...],    # optional
+            "resource_names": ["A", "B", ...]      # optional
+        }
+    """
+    if not request.is_json:
+        return _error_response("Invalid input", "Request body must be valid JSON.", 400)
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return _error_response("Invalid input", "Request body must be a JSON object.", 400)
+
+    for field in ["available", "allocation", "max", "process_index", "request"]:
+        if field not in data:
+            return _error_response("Invalid input", f"Missing required field: '{field}'.", 400)
+
+    available = data["available"]
+    allocation = data["allocation"]
+    max_matrix = data["max"]
+    process_idx = data["process_index"]
+    req_vector = data["request"]
+    process_names = data.get("process_names")
+    resource_names = data.get("resource_names")
+
+    if not isinstance(process_idx, int) or isinstance(process_idx, bool):
+        return _error_response("Invalid input", "Field 'process_index' must be an integer.", 400)
+
+    try:
+        req_eval = simulate_resource_request(
+            available=available,
+            allocation=allocation,
+            max_matrix=max_matrix,
+            process_idx=process_idx,
+            request_vector=req_vector,
+            process_names=process_names,
+            resource_names=resource_names,
+        )
+    except ValueError as ve:
+        return _error_response("Validation error", str(ve), 400)
+    except Exception as e:
+        return _error_response("Request simulation error", str(e), 500)
+
+    return jsonify(req_eval), 200
+

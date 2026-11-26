@@ -1,300 +1,247 @@
 # Memora
 
-**Memora: A Virtual Memory Simulator for Page Replacement Algorithm Analysis**
+**Memora: An Integrated Operating Systems Resource-Management Simulator**
 
-An interactive virtual memory simulator for understanding, demonstrating, and comparing fundamental page-replacement algorithms in Operating Systems.
-
----
-
-## 1. Overview
-
-In virtual memory operating systems, physical RAM is divided into fixed-size units called **page frames**, and virtual address spaces are partitioned into equal-sized **pages**. Because physical memory is typically smaller than the total virtual memory demanded by active processes, operating systems employ **demand paging**. When a process references a page not currently resident in physical memory, the Memory Management Unit (MMU) triggers a hardware trap known as a **page fault**.
-
-If physical memory has free frames, the requested page is simply brought in from secondary storage. However, when all available frames are occupied, a **page replacement algorithm** must determine which resident page to evict (the "victim" page) to make room for the incoming page.
-
-Different page replacement algorithms employ different heuristic strategies, resulting in stark differences in page fault frequencies. Manually tracing these algorithms step-by-step on paper is tedious, time-consuming, and prone to calculation errors.
-
-**Memora** automates this process for students, educators, and system researchers. It executes page reference sequences across algorithms, renders step-by-step hardware memory frame states, calculates standard performance metrics, and conducts comparative performance evaluations through both an interactive web dashboard and a command-line interface.
+An educational, interactive, and analytical Operating Systems simulator for understanding, demonstrating, and evaluating foundational OS resource-management functions:
+1. **Virtual Memory Management:** Page replacement algorithms (FIFO, LRU, Optimal) & Bélády's Anomaly analysis.
+2. **CPU Scheduling:** Process execution, interactive Gantt charts, and comparative performance (FCFS, Non-Preemptive SJF, Round Robin with configurable time quantum).
+3. **Deadlock Management:** Banker's Algorithm for deadlock avoidance (Available, Allocation, Max, Need matrices, safety check, safe execution sequence, and dynamic resource-request simulation).
 
 ---
 
-## 2. Features
+## 1. Executive Summary & Project Context
 
-### Simulation & Analysis
-- **Three Core Algorithms:** Faithful implementations of First-In, First-Out (**FIFO**), Least Recently Used (**LRU**), and Bélády's **Optimal** page replacement algorithms.
-- **Configurable Frame Count:** Supports arbitrary page reference sequences with physical memory allocations ranging from 1 to 8 frames.
-- **Deterministic State Tracking:** Explicit step-by-step tracking of page arrivals, frame residency, hit/fault outcomes, and victim evictions.
+Operating systems manage hardware resources through three critical control subsystems:
+- **Memory Management:** Allocating memory to processes and swapping pages between physical RAM and backing store via demand paging.
+- **CPU Scheduling:** Deciding which ready process is assigned the CPU core to optimize turnaround, waiting time, and system throughput.
+- **Deadlock Management:** Ensuring that dynamic resource allocations never lead to circular wait conditions where processes block indefinitely.
 
-### Interactive Web Dashboard
-- **Hardware Memory Rack:** Real-time visual representation of physical memory slots, highlighting page hits (`HIT`), new allocations (`NEWLY LOADED`), and page evictions (`REPLACED P<id>`).
-- **Playback Controls:** Step-forward, step-backward, jump to start/end, and continuous automated playback with speed adjustments ($0.5\times$, $1\times$, $2\times$).
-- **Keyboard Shortcuts:** Ergonomic playback via keyboard (`Spacebar` to toggle play/pause, `Left Arrow` for previous step, `Right Arrow` for next step).
-- **Execution Trace Table:** Interactive tabular execution log highlighting active steps and auto-scrolling with playback.
-- **Dynamic Invalidation Warnings:** Immediate visual notices if page sequences or frame counts are modified after a run, preventing stale metric analysis.
-
-### Multi-Algorithm Comparison
-- **Simultaneous Evaluation:** Evaluates FIFO, LRU, and Optimal on identical inputs under identical conditions.
-- **Performance Ranking:** Identifies top-performing algorithms based on fewest page faults and cleanly reports tied winners without arbitrary selection.
-- **High-Precision Charts:** Responsive client-side HTML5 Canvas bar charts comparing faults vs. hits and hit ratios (%) side-by-side without external CDN dependencies.
-- **Headless Matplotlib Generation:** Matplotlib chart generation for command-line batch exports to `results/charts/`.
-
-### Defensive Validation & Tooling
-- **Strict Input Validation:** Rejects empty sequences, non-integers, negative page numbers, invalid frame counts, and explicit boolean values (`True`/`False`).
-- **REST API:** Modular Flask API backend serving health checks, simulation payloads, and comparison matrices with standardized JSON schemas.
-- **CSV Data Export:** Automated structured tabular export of simulation history and comparison summaries to `results/reports/`.
-- **Predefined Academic Datasets:** Preloaded reference strings including standard textbook cases, Bélády's anomaly sequences, sequential workloads, and high-locality loops.
+**Memora** brings these three resource-management functions into a unified, interactive platform designed for undergraduate Operating Systems education (B.Tech CSE Capstone / Lab coursework). It features:
+- A responsive, multi-module web dashboard with hardware memory rack, Canvas charts, interactive CPU Gantt charts, and Banker's matrix inspection.
+- A RESTful Flask API providing endpoints for simulation, comparative benchmarking, and safety evaluation.
+- An interactive command-line interface (CLI) and automated shell scripts for headless batch execution and viva demonstrations.
+- An automated test suite containing **96 passing unit tests** covering mathematical invariants, edge cases, and API contracts.
 
 ---
 
-## 3. Algorithms
-
-| Algorithm | Type | Strategy | Academic Significance |
-|:---|:---:|:---|:---|
-| **FIFO** | Practical | Evicts the page loaded earliest into memory (queue discipline) | Simple implementation; susceptible to Bélády's Anomaly |
-| **LRU** | Practical | Evicts the page not accessed for the longest time in the past | Exploits temporal locality; stack algorithm immune to Bélády's Anomaly |
-| **Optimal** | Theoretical | Evicts the page whose next use occurs farthest in the future (or never) | Theoretical upper bound benchmark; unrealizable in general-purpose OS |
-
-### First-In, First-Out (FIFO)
-The FIFO algorithm treats physical memory frames as a strict queue. When a page must be replaced, the page that has resided in memory the longest (the oldest loaded page) is selected for eviction.
-- **Hit Condition:** If the requested page is already resident in any frame, it is counted as a page hit. Crucially, a hit does **not** update the page's position in the FIFO queue.
-- **Fault Condition:** If an empty frame exists, the page is loaded into the lowest-indexed available frame and appended to the queue. If all frames are occupied, the page at the head of the queue is evicted and the new page is appended to the tail.
-
-### Least Recently Used (LRU)
-The LRU algorithm approximates optimal replacement by relying on the principle of **temporal locality**: pages referenced in the recent past are likely to be referenced again in the near future.
-- **Hit Condition:** When a resident page is accessed, its last-used timestamp is updated to the current step index, moving it away from eviction candidacy.
-- **Fault Condition:** If memory is full, LRU scans all resident pages, identifies the page with the minimum (oldest) access step, evicts it, and registers the new page with the current timestamp.
-
-### Optimal (Bélády's Algorithm)
-Proposed by László Bélády in 1966, the Optimal algorithm achieves the lowest possible page fault rate for any fixed sequence of memory accesses.
-- **Replacement Rule:** When a page fault occurs and all frames are full, the algorithm scans the *future* portion of the reference string for each resident page. The page whose next occurrence is farthest in the future—or which is never referenced again—is selected as the victim.
-- **Tie-Breaking:** If multiple pages in memory will never be referenced again, Memora breaks ties deterministically by selecting the page residing in the lowest frame index.
-- **Academic Benchmark:** Optimal is strictly an offline theoretical benchmark. Because real-world operating systems cannot predict future memory references of arbitrary programs, Optimal cannot be implemented in general-purpose OS schedulers.
-
----
-
-## 4. Performance Metrics
-
-Memora computes standard academic virtual memory metrics across all simulation runs:
-
-### Definitions & Formulas
-
-$$\text{Total Page References } (N) = \text{Page Hits } (H) + \text{Page Faults } (F)$$
-
-$$\text{Hit Ratio } (HR) = \left( \frac{\text{Page Hits } (H)}{\text{Total References } (N)} \right) \times 100\%$$
-
-$$\text{Fault Ratio } (FR) = \left( \frac{\text{Page Faults } (F)}{\text{Total References } (N)} \right) \times 100\%$$
-
-$$\text{Invariant: } HR + FR = 100.00\%$$
-
-These ratios are defined for all non-empty page reference sequences ($N \ge 1$).
-
----
-
-## 5. Demonstration Results
-
-### Standard Reference Case
-
-Using the classic Operating Systems textbook reference sequence (Silberschatz, Galvin & Gagne):
+## 2. Core Modules & Capabilities
 
 ```text
-Sequence: 7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1
-Length:   20 page accesses
-Frames:   3 physical frames
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          MEMORA SYSTEM ARCHITECTURE                         │
+├───────────────────────┬─────────────────────────────┬───────────────────────┤
+│    VIRTUAL MEMORY     │       CPU SCHEDULING        │  DEADLOCK MANAGEMENT  │
+│  (Page Replacement)   │   (Process & Gantt Charts)  │  (Banker's Algorithm) │
+├───────────────────────┼─────────────────────────────┼───────────────────────┤
+│ • FIFO                │ • FCFS                      │ • Safety Algorithm    │
+│ • LRU                 │ • Non-Preemptive SJF        │ • Need Matrix Calc    │
+│ • Bélády's Optimal    │ • Round Robin (Quantum q)   │ • Safe Sequence Trace │
+│ • 1 to 8 Frame Pools  │ • Gantt Chart Timeline      │ • Dynamic Requests    │
+│ • Hit / Fault Ratios  │ • CT, TAT, WT, RT Metrics   │ • Safe vs Unsafe State│
+│ • Bélády's Anomaly    │ • CPU Utilization %         │ • Multi-Resource Avoid│
+└───────────────────────┴─────────────────────────────┴───────────────────────┘
 ```
 
-| Algorithm | Page Faults | Page Hits | Hit Ratio (%) | Fault Ratio (%) | Invariant Check ($H+F=N$) |
+### Module 1: Virtual Memory Management
+- **Algorithms:** First-In First-Out (**FIFO**), Least Recently Used (**LRU**), and Bélády's **Optimal** algorithm.
+- **Configurable Frame Count:** Allocations from 1 to 8 physical memory frames.
+- **Hardware Memory Rack:** Real-time visual display showing cold-start loads, resident hits, and victim evictions.
+- **Step-by-Step Playback:** Automated playback with variable speed ($0.5\times$, $1\times$, $2\times$), step forward/back, and keyboard navigation (`Space`, `←`, `→`).
+- **Bélády’s Anomaly Demonstration:** Automated comparison demonstrating that FIFO can yield more page faults when allocated additional frames.
+
+### Module 2: CPU Scheduling
+- **Algorithms:** First-Come First-Served (**FCFS**), Non-Preemptive Shortest Job First (**SJF**), and **Round Robin (RR)** with configurable time quantum $q$.
+- **Process Workload Editor:** Dynamic addition and deletion of processes with arrival times ($AT \ge 0$) and burst times ($BT > 0$).
+- **Interactive Gantt Chart:** Visual horizontal timeline detailing execution intervals, process switches, and CPU idle gaps.
+- **Standard Process Metrics:** Turnaround Time ($TAT$), Waiting Time ($WT$), Response Time ($RT$), Completion Time ($CT$), Average Waiting Time ($AWT$), Average Turnaround Time ($ATAT$), Average Response Time ($ART$), CPU Utilization ($U\%$), and System Throughput.
+- **Multi-Algorithm Comparison:** Simultaneous evaluation ranking algorithms by AWT and ATAT.
+
+### Module 3: Deadlock Management (Banker's Algorithm)
+- **Safety Algorithm:** Formally verifies whether the system is in a **Safe State** where all processes can run to completion under maximum declared claims.
+- **Matrix Calculations:** Computes the Need matrix ($Need[i][j] = Max[i][j] - Allocation[i][j]$) and verifies state invariants ($\text{Allocation} \le \text{Max}$, $\sum \text{Alloc} + \text{Available} = \text{Total}$).
+- **Safe Execution Sequence:** Discovers and outputs a valid topological execution sequence (e.g. $P_1 \rightarrow P_3 \rightarrow P_4 \rightarrow P_0 \rightarrow P_2$).
+- **Step-by-Step Allocation Trace:** Tabular audit trail showing `Work_before`, `Need`, `Allocation`, `Work_after`, and process completion status.
+- **Resource-Request Simulation:** Evaluates dynamic requests using the two-phase safety test: ensures $Request \le Need$ and $Request \le Available$, grants hypothetical allocation, and checks safety before deciding whether to approve the request or force the process to wait.
+
+---
+
+## 3. Mathematical Foundations & Metric Definitions
+
+### Virtual Memory Formulas
+$$\text{Total Accesses } (N) = \text{Page Hits } (H) + \text{Page Faults } (F)$$
+$$\text{Hit Ratio } (HR) = \left( \frac{H}{N} \right) \times 100\%, \quad \text{Fault Ratio } (FR) = \left( \frac{F}{N} \right) \times 100\%$$
+$$\text{Mathematical Invariant: } HR + FR = 100.00\%$$
+
+### CPU Scheduling Formulas
+$$\text{Turnaround Time } (TAT) = \text{Completion Time } (CT) - \text{Arrival Time } (AT)$$
+$$\text{Waiting Time } (WT) = \text{Turnaround Time } (TAT) - \text{Burst Time } (BT)$$
+$$\text{Response Time } (RT) = \text{First CPU Start Time } - \text{Arrival Time } (AT)$$
+$$\text{CPU Utilization } (U) = \left( \frac{\text{Total Busy Time}}{\text{Total Simulation Time}} \right) \times 100\%$$
+$$\text{Throughput } (TP) = \frac{\text{Number of Completed Processes}}{\text{Total Simulation Time}}$$
+
+### Deadlock Avoidance Formulas (Banker's Algorithm)
+$$Need[i][j] = Max[i][j] - Allocation[i][j] \quad \forall i \in [0, n-1], j \in [0, m-1]$$
+$$\text{Allocation Invariant: } Allocation[i][j] \le Max[i][j]$$
+$$\text{Safety Condition: } \exists \text{ sequence } \langle P_1, P_2, \dots, P_n \rangle \text{ such that } Need[i] \le Work \text{ at each step}$$
+$$\text{Academic Distiction: } \text{Unsafe State} \neq \text{Deadlock}. \text{ An unsafe state implies the OS cannot guarantee avoidance of deadlock.}$$
+
+---
+
+## 4. Academic Demonstration Results
+
+### Part 1: Virtual Memory Reference Case
+Using the standard Operating Systems textbook reference sequence (Silberschatz, Galvin & Gagne):
+- **Page String:** `[7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1]` ($N=20$)
+- **Frame Allocation:** $m = 3$ frames
+
+| Algorithm | Page Faults | Page Hits | Hit Ratio (%) | Fault Ratio (%) | Outcome |
+|:---|:---:|:---:|:---:|:---:|:---|
+| **FIFO** | **15** | 5 | 25.00% | 75.00% | High thrashing; evicts Page 0 right before next reference |
+| **LRU** | **12** | 8 | 40.00% | 60.00% | Exploits temporal locality; protects active working set |
+| **Optimal** | **9** | 11 | 55.00% | 45.00% | Theoretical maximum hit ratio benchmark (Bélády) |
+
+### Part 2: CPU Scheduling Workload
+Using a standard 4-process staggered workload with Round Robin quantum $q = 2$:
+- $P_1: AT=0, BT=5$
+- $P_2: AT=1, BT=3$
+- $P_3: AT=2, BT=8$
+- $P_4: AT=3, BT=6$
+
+| Algorithm | Avg Waiting Time (AWT) | Avg Turnaround Time (ATAT) | Avg Response Time (ART) | CPU Utilization | Throughput |
 |:---|:---:|:---:|:---:|:---:|:---:|
-| **FIFO** | **15** | **5** | 25.00% | 75.00% | $5 + 15 = 20$ |
-| **LRU** | **12** | **8** | 40.00% | 60.00% | $8 + 12 = 20$ |
-| **Optimal** | **9** | **11** | 55.00% | 45.00% | $11 + 9 = 20$ |
+| **FCFS** | 5.75 ms | 11.25 ms | 5.75 ms | 100.00% | 0.1818 p/ms |
+| **SJF (Non-Preemptive)** | **5.25 ms** | **10.75 ms** | **5.25 ms** | 100.00% | 0.1818 p/ms |
+| **Round Robin ($q=2$)** | 9.75 ms | 15.25 ms | **2.00 ms** | 100.00% | 0.1818 p/ms |
 
-**Why Results Differ:**
-- **Optimal (9 faults):** Exploits complete lookahead knowledge, avoiding evictions of pages 2 and 0 when they will be needed shortly thereafter.
-- **LRU (12 faults):** Preserves frequently cycled pages (0, 2, 3) because their recent hits keep them protected.
-- **FIFO (15 faults):** Blindly evicts Page 0 during step 5 because it arrived first, even though Page 0 is accessed again immediately at step 6, resulting in immediate thrashing.
+**Key Academic Findings:**
+- **SJF minimizes AWT and ATAT:** Prioritizing short jobs reduces waiting time across the ready queue.
+- **Round Robin optimizes ART:** Interactive response time drops to 2.00 ms (best for multi-user OS) at the expense of higher context-switch overhead and turnaround time.
 
----
+### Part 3: Deadlock Management (Silberschatz Reference Case)
+- **Processes:** 5 processes ($P_0$ through $P_4$)
+- **Resource Types:** 3 resource types ($A, B, C$)
+- **Available Vector:** $[3, 3, 2]$
+- **Allocation Matrix:** $P_0=[0,1,0], P_1=[2,0,0], P_2=[3,0,2], P_3=[2,1,1], P_4=[0,0,2]$
+- **Max Claim Matrix:** $P_0=[7,5,3], P_1=[3,2,2], P_2=[9,0,2], P_3=[2,2,2], P_4=[4,3,3]$
 
-## 6. Bélády’s Anomaly
-
-One of the most counterintuitive phenomena in Operating Systems is **Bélády's Anomaly**: for certain page reference sequences, increasing the number of physical memory frames can actually result in an *increase* in the number of page faults under FIFO replacement.
-
-### Verified Anomaly Demonstration
-
-Consider the reference sequence:
-
-```text
-Sequence: 1, 2, 3, 4, 1, 2, 5, 1, 2, 3, 4, 5
-Length:   12 page accesses
-```
-
-Evaluating FIFO with 3 frames versus 4 frames:
-
-| Allocation | Algorithm | Page Faults | Page Hits | Outcome |
-|:---|:---:|:---:|:---:|:---|
-| **3 Frames** | FIFO | **9** | **3** | Baseline memory allocation |
-| **4 Frames** | FIFO | **10** | **2** | **Page faults INCREASE despite adding physical memory!** |
-
-### Why Bélády's Anomaly Occurs
-FIFO is **not a stack algorithm**. A page replacement algorithm is classified as a *stack algorithm* if the set of pages in memory for $m$ frames is always a subset of the pages in memory for $m+1$ frames:
-
-$$S_m(t) \subseteq S_{m+1}(t)$$
-
-Stack algorithms (such as **LRU** and **Optimal**) strictly satisfy this inclusion property, guaranteeing that increasing memory frames will never increase page faults:
-- **LRU with 3 frames:** 10 faults $\rightarrow$ **LRU with 4 frames:** 8 faults (faults decrease)
-- **Optimal with 3 frames:** 7 faults $\rightarrow$ **Optimal with 4 frames:** 6 faults (faults decrease)
-
-Because FIFO tracks insertion timestamps rather than access patterns, adding a 4th frame alters the eviction order such that pages needed in subsequent steps are prematurely removed.
+**Results:**
+- **System Verdict:** `SAFE STATE`
+- **Safe Execution Sequence:** $P_1 \rightarrow P_3 \rightarrow P_0 \rightarrow P_2 \rightarrow P_4$
+- **Resource Request Test 1:** $P_1$ requests $[1, 0, 2] \rightarrow$ **GRANTED** (safe sequence remains valid).
+- **Resource Request Test 2:** $P_0$ requests $[0, 2, 0] \rightarrow$ **DENIED / MUST WAIT** (granting leaves system unable to guarantee completion).
 
 ---
 
-## 7. Operating Systems Syllabus Alignment
-
-Memora is mapped directly to undergraduate **Operating Systems (CSE316 / CS301)** curricula:
-
-### Unit 3 — Virtual Memory Management
-
-| Syllabus Topic | Academic Concept | Memora Implementation |
-|:---|:---|:---|
-| **Demand Paging** | Loading pages into memory on demand; handling cold-start page faults vs. page hits. | Simulation engine explicitly models cold frame allocation (`None -> page`) and records step-by-step hit/fault transitions. |
-| **Page Replacement Algorithms** | Mechanics of evicting resident pages when frames are exhausted. | Direct comparative implementations of FIFO, LRU, and Optimal on identical inputs. |
-| **Allocation of Frames** | Impact of physical frame pool sizing ($m$) on system throughput and fault rates. | Interactive frame selector ($1 \le m \le 8$) and automated demonstration of Bélády's Anomaly. |
-
-*Note: Memora focuses specifically on page replacement algorithm mechanics and performance analysis. It does not model hardware TLBs, MMU address translation tables, or disk I/O scheduling.*
-
----
-
-## 8. Application Preview
-
-### Interactive Dashboard Architecture
-
-```text
-┌────────────────────────────────────────────────────────────────────────┐
-│  MEMORA — Virtual Memory Simulator              [● Backend Online]    │
-├────────────────────────┬───────────────────────────────────────────────┤
-│ INPUT & CONFIGURATION  │ PHYSICAL MEMORY FRAMES (RAM)                  │
-│                        │ ┌───────────┐ ┌───────────┐ ┌───────────┐     │
-│ Page Sequence:         │ │  Frame 0  │ │  Frame 1  │ │  Frame 2  │     │
-│ [7, 0, 1, 2, 0, 3...]  │ │     2     │ │     0     │ │     1     │     │
-│                        │ │ [PAGE HIT]│ │[STATIONARY│ │[REPLACED] │     │
-│ Physical Frames: [3]   │ └───────────┘ └───────────┘ └───────────┘     │
-│ Stepper: [-] [3] [+]   │ Step 4 / 20: Page 0 -> HIT (In physical RAM)  │
-│                        ├───────────────────────────────────────────────┤
-│ Algorithm Selection:   │ PLAYBACK TIMELINE CONTROLS                    │
-│ (•) FIFO ( ) LRU ( )Opt│ [|<] [<<] [ ▶ Play ] [>>] [>|]  Speed: 1x     │
-│                        ├───────────────────────────────────────────────┤
-│ [ Run Simulation ]     │ EXECUTION HISTORY TRACE TABLE                 │
-│ [ Compare Algorithms ] │ Step | Page | Frame 0 | Frame 1 | Frame 2 ... │
-└────────────────────────┴───────────────────────────────────────────────┘
-│ ALGORITHM COMPARISON & HIGH-PRECISION CHARTS                           │
-│ Winner: 🏆 Best: Optimal (9 Faults)                                    │
-│ [Comparison Table: FIFO (15) | LRU (12) | Optimal (9)]                 │
-│ [Chart 1: Faults vs. Hits]        [Chart 2: Hit Ratio (%)]             │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 9. Technology Stack
+## 5. Technology Stack
 
 | Layer | Component | Description |
 |:---|:---|:---|
-| **Language** | Python 3.8+ (3.10+ recommended) | Core simulation engines, data structures, and CLI |
-| **Backend Framework** | Flask 3.0+ & Flask-CORS 4.0+ | Lightweight REST API and static asset router |
-| **Frontend Presentation** | HTML5 & CSS3 | Semantic layout with responsive engineering dark theme |
-| **Frontend Behavior** | Vanilla JavaScript (ES6+) | Modular client (`api.js`, `charts.js`, `visualizer.js`, `app.js`) |
-| **Client-Side Charts** | HTML5 Canvas API | High-DPI responsive bar charts rendered without external CDNs |
-| **Server-Side Charts** | Matplotlib 3.7+ | Headless PNG generation for CLI batch comparison exports |
-| **Data Serialization** | JSON & CSV | API payloads, sample datasets, and report exports |
-| **Test Framework** | Python `unittest` | 58 comprehensive unit, integration, and regression tests |
-| **Shell Integration** | Bash (Git Bash on Windows / POSIX) | Automated startup, batch execution, and system inspection |
+| **Programming Language** | Python 3.8+ (3.10+ recommended) | Core engines, data structures, and CLI |
+| **Backend Framework** | Flask 3.0+ & Flask-CORS 4.0+ | REST API, validation middleware, and static asset router |
+| **Frontend Presentation** | Semantic HTML5 & CSS3 | Responsive engineering dark theme, custom tabs, Gantt layout |
+| **Frontend Dynamics** | Vanilla JavaScript (ES6+) | Modular client (`api.js`, `charts.js`, `visualizer.js`, `app.js`) |
+| **Client-Side Charts** | HTML5 Canvas API | High-DPI bar charts without third-party dependencies |
+| **Server-Side Charts** | Matplotlib 3.7+ | Headless PNG generation for CLI exports (Gantt and comparison) |
+| **Data Formats** | JSON & CSV | API payloads, workload datasets, and report exports |
+| **Testing Engine** | Python `unittest` | 96 comprehensive tests across all modules (100% passing) |
+| **Shell Scripting** | Bash (Git Bash / Linux / WSL) | Interactive launcher and automated batch execution |
 
 ---
 
-## 10. Project Architecture
+## 6. Project Architecture
 
 ```text
 Memora/
-├── app.py                     # Flask web server entry point (127.0.0.1:5000)
-├── main.py                    # Command-line interface entry point
-├── requirements.txt           # Python package dependencies
-├── README.md                  # Master project documentation
-├── .gitignore                 # Git ignore rules for virtualenvs, caches, logs
+├── app.py                         # Flask web application entry point (127.0.0.1:5000)
+├── main.py                        # Unified interactive CLI & command-line interface
+├── requirements.txt               # Python package dependencies
+├── README.md                      # Comprehensive project documentation
+├── .gitignore                     # Git ignore rules
 │
 ├── templates/
-│   └── index.html             # Interactive simulation dashboard template
+│   └── index.html                 # Multi-module interactive web dashboard
 │
 ├── static/
 │   ├── css/
-│   │   └── style.css          # Engineering dark theme and responsive layout
+│   │   └── style.css              # Technical dark theme, module tabs & Gantt styling
 │   └── js/
-│       ├── api.js             # REST API asynchronous client module
-│       ├── charts.js          # Pure HTML5 Canvas comparison chart renderer
-│       ├── visualizer.js      # Memory frame rack & timeline playback controller
-│       └── app.js             # Application coordinator and UI event orchestrator
+│       ├── api.js                 # REST API client for Memory, CPU, and Deadlock
+│       ├── charts.js              # HTML5 Canvas chart renderer
+│       ├── visualizer.js          # Memory frame rack & playback controller
+│       └── app.js                 # Full-stack UI orchestrator for all 3 modules
 │
 ├── src/
-│   ├── algorithms/            # Page replacement algorithm modules
-│   │   ├── fifo.py            #   FIFO algorithm implementation
-│   │   ├── lru.py             #   LRU algorithm implementation
-│   │   └── optimal.py         #   Optimal (Bélády's) algorithm implementation
+│   ├── algorithms/                # Memory page replacement algorithms
+│   │   ├── fifo.py                #   FIFO implementation
+│   │   ├── lru.py                 #   LRU implementation
+│   │   └── optimal.py             #   Optimal (Bélády) implementation
 │   │
-│   ├── core/                  # Core simulation and validation logic
-│   │   ├── simulator.py       #   Central dispatcher and execution engine
-│   │   ├── metrics.py         #   Hit/fault metrics and comparison analyzer
-│   │   └── validator.py       #   Input validation for sequences and frames
+│   ├── core/                      # Memory core engine
+│   │   ├── simulator.py           #   Dispatcher and execution tracker
+│   │   ├── metrics.py             #   Memory hits/faults formulas
+│   │   └── validator.py           #   Memory sequence and frame validator
 │   │
-│   ├── analysis/              # Comparative analysis and reporting
-│   │   ├── comparison.py      #   Multi-algorithm comparative evaluation
-│   │   └── visualization.py   #   Headless Matplotlib chart generator
+│   ├── cpu/                       # CPU Scheduling Subsystem
+│   │   ├── fcfs.py                #   First-Come First-Served scheduler
+│   │   ├── sjf.py                 #   Non-preemptive Shortest Job First scheduler
+│   │   ├── round_robin.py         #   Preemptive Round Robin scheduler
+│   │   ├── metrics.py             #   CT, TAT, WT, RT, utilization, throughput
+│   │   ├── scheduler.py           #   CPU dispatcher & multi-algorithm comparison
+│   │   └── validator.py           #   Process definition & quantum validation
 │   │
-│   ├── api/                   # REST API backend layer
-│   │   ├── app.py             #   Flask application factory & blueprint registration
-│   │   └── routes.py          #   API endpoint handlers (/simulate, /compare, /health)
+│   ├── deadlock/                  # Deadlock Management Subsystem
+│   │   ├── bankers.py             #   Safety algorithm & resource request engine
+│   │   └── validator.py           #   Matrix dimensions & claim validation
 │   │
-│   └── utils/                 # Shared utilities
-│       ├── file_handler.py    #   JSON dataset loading & CSV report generation
-│       └── logger.py          #   Standard logging configuration
+│   ├── analysis/                  # Comparison & visual plotting
+│   │   ├── comparison.py          #   Memory comparative analysis
+│   │   └── visualization.py       #   Matplotlib charts (Memory & CPU Gantt)
+│   │
+│   ├── api/                       # Flask REST API backend
+│   │   ├── app.py                 #   Application factory
+│   │   └── routes.py              #   REST routes for all 3 subsystems
+│   │
+│   └── utils/                     # Utility services
+│       ├── file_handler.py        #   Dataset and CSV file handlers
+│       └── logger.py              #   Standard system logger
 │
-├── datasets/                  # Preloaded academic reference sequences
-│   ├── sample_input.json      #   8 curated workload datasets
-│   └── test_cases.json        #   Precomputed verification test cases
+├── datasets/                      # Preloaded academic datasets
+│   ├── sample_input.json          #   8 Virtual Memory datasets
+│   ├── test_cases.json            #   Precomputed verification cases
+│   ├── cpu_scheduling_samples.json # 4 CPU workload configurations
+│   └── deadlock_samples.json      #   3 Banker's Algorithm test scenarios
 │
-├── docs/                      # Architectural specifications & reports
-│   ├── architecture.md        #   Technical specifications and data contracts
-│   ├── project_report.md      #   Academic project report
-│   └── screenshots/           #   Project demonstration visual assets
+├── bash/                          # Automated shell scripts
+│   ├── run.sh                     #   Interactive launcher menu & flag forwarder
+│   ├── batch_simulation.sh        #   Automated batch simulation runner
+│   └── system_info.sh             #   Environment diagnostic utility
 │
-├── bash/                      # Automated shell scripts (Git Bash / Linux)
-│   ├── run.sh                 #   Main application launcher script
-│   ├── batch_simulation.sh    #   Batch simulation over all datasets
-│   └── system_info.sh         #   Runtime environment and dependency diagnostics
+├── results/                       # Generated artifacts
+│   ├── charts/                    #   PNG comparison figures & Gantt charts
+│   ├── logs/                      #   Execution trace logs
+│   └── reports/                   #   CSV export reports
 │
-├── results/                   # Generated output directories
-│   ├── charts/                #   Exported Matplotlib PNG figures
-│   ├── logs/                  #   Execution log files
-│   └── reports/               #   Exported CSV simulation reports
-│
-└── tests/                     # Automated test suite
-    ├── __init__.py
-    ├── test_api.py            #   Flask API endpoint & static asset tests
-    ├── test_fifo.py           #   FIFO unit tests & invariant verification
-    ├── test_lru.py            #   LRU unit tests & recency updates
-    ├── test_optimal.py        #   Optimal lookahead & tie-breaking tests
-    ├── test_metrics.py        #   Mathematical formula & summary tests
-    ├── test_simulator.py      #   Simulation engine dispatcher tests
-    ├── test_validator.py      #   Defensive input validation boundary tests
-    ├── test_datasets.py       #   Dataset schema and integrity tests
-    └── test_utils.py          #   File handling and logger tests
+└── tests/                         # Automated unit test suite (96 tests)
+    ├── test_api.py                #   Flask API endpoint & static route tests
+    ├── test_cpu_scheduling.py     #   CPU scheduling algorithms, Gantt & metrics
+    ├── test_deadlock.py           #   Banker's safety & request algorithm tests
+    ├── test_mathematical_audit.py #   Independent mathematical verification & benchmark regressions
+    ├── test_fifo.py               #   FIFO eviction logic & anomaly tests
+    ├── test_lru.py                #   LRU recency updates & cache hit tests
+    ├── test_optimal.py            #   Optimal future lookahead tests
+    ├── test_metrics.py            #   Memory metric invariant calculations
+    ├── test_simulator.py          #   Memory simulation dispatcher tests
+    ├── test_validator.py          #   Defensive input validation tests
+    ├── test_datasets.py           #   Dataset schema integrity tests
+    └── test_utils.py              #   File I/O and logger verification tests
 ```
 
 ---
 
-## 11. Installation and Setup
+## 7. Installation and Setup
 
 ### Prerequisites
-- **Python:** Version 3.8 or higher (Python 3.10+ recommended)
-- **Git:** For repository cloning
+- **Python:** Version 3.8+ (3.10+ recommended)
 - **Operating System:** Windows, Linux, or macOS
 
 ### 1. Clone the Repository
@@ -305,22 +252,16 @@ cd Memora
 
 ### 2. Set Up Virtual Environment
 
-**On Windows (PowerShell or Command Prompt):**
+**Windows (PowerShell):**
 ```powershell
 python -m venv venv
 .\venv\Scripts\activate
 ```
 
-**On Windows (Git Bash):**
+**Windows (Git Bash) / Linux / macOS:**
 ```bash
 python -m venv venv
 source venv/Scripts/activate
-```
-
-**On Linux / macOS:**
-```bash
-python3 -m venv venv
-source venv/bin/activate
 ```
 
 ### 3. Install Dependencies
@@ -328,214 +269,129 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Launch the Web Application
+### 4. Launch the Web Dashboard
 ```bash
 python app.py
 ```
-Open your browser and navigate to:
-```text
-http://127.0.0.1:5000
-```
+Open your browser at `http://127.0.0.1:5000` to interact with all three modules.
 
-### 5. Launch the Command-Line Interface (Alternative)
+### 5. Launch the Command-Line Interface (CLI)
 ```bash
+# Interactive menu:
 python main.py
-```
-Or via Git Bash:
-```bash
+
+# Or via Bash launcher:
 bash bash/run.sh
 ```
 
 ---
 
-## 12. Usage Guide
+## 8. CLI Commands & Demonstration Flags
 
-### Web Dashboard Workflow
-1. **Configure Sequence:** Enter comma-separated page numbers into the sequence textarea, select a preset button (e.g. *Reference Case*, *Belady's Anomaly*, *Locality*), or generate random numbers via *🎲 Random*.
-2. **Set Frame Count:** Adjust physical memory frames between 1 and 8 using the stepper buttons (`+` / `-`) or chip presets.
-3. **Select Algorithm:** Choose FIFO, LRU, or Optimal via the algorithm selector.
-4. **Execute Simulation:** Click **Run Simulation**. The physical memory rack and KPI metrics update immediately.
-5. **Step-by-Step Playback:** Use the playback bar to step through page accesses, inspect hits/faults, or press **Play** for animated transitions.
-6. **Compare All Algorithms:** Click **Compare All Algorithms** to evaluate FIFO, LRU, and Optimal simultaneously, view the winner banner, and analyze Canvas charts.
-
-### Command-Line Interface (CLI)
-```bash
-# Run interactive menu:
-python main.py
-
-# Run quick reference demonstration:
-python main.py --demo
-
-# Run specific algorithm on custom input:
-python main.py --pages 7 0 1 2 0 3 0 4 2 3 --frames 3 --algo LRU
-
-# Run comparison on custom input:
-python main.py --pages 1 2 3 4 1 2 5 1 2 3 4 5 --frames 3 --compare
-
-# Run batch simulation across all preloaded datasets:
-python main.py --batch
-```
+| Command | Subsystem | Action |
+|:---|:---:|:---|
+| `python main.py --demo-all` | **All 3** | **Full Capstone Viva Demonstration:** Runs Memory reference case, CPU scheduling workload, and Banker's safety check non-interactively. |
+| `python main.py --demo` | Memory | Runs the classic textbook memory reference case (FIFO, LRU, Optimal). |
+| `python main.py --module cpu` | CPU | Opens CPU scheduling interactive submenu. |
+| `python main.py --module deadlock` | Deadlock | Opens Deadlock Management interactive submenu. |
+| `python main.py --batch` | Memory | Executes batch simulations across all 8 datasets in `sample_input.json`. |
+| `python main.py --pages 7,0,1,2 --frames 3 --algo LRU` | Memory | Runs specific memory algorithm from command-line arguments. |
 
 ---
 
-## 13. API Documentation
+## 9. REST API Reference
 
-Memora exposes a RESTful JSON API powered by Flask under the `/api` prefix.
+All API routes return standardized JSON schemas with HTTP 200 on success and HTTP 400/404/405/500 on errors.
 
-### 1. Health Check
-- **Route:** `GET /api/health`
-- **Description:** Verifies backend connectivity and server availability.
-- **Response `(200 OK)`:**
+### 1. Backend Health Check
+- `GET /api/health`
+- **Response:** `{"application": "Memora", "status": "ok"}`
+
+### 2. Virtual Memory Simulation & Comparison
+- `POST /api/simulate`: Body `{"sequence": [7,0,1,2], "frames": 3, "algorithm": "LRU"}`
+- `POST /api/compare`: Body `{"sequence": [7,0,1,2], "frames": 3}`
+
+### 3. CPU Scheduling Simulation & Comparison
+- `POST /api/cpu/schedule`:
   ```json
   {
-    "application": "Memora",
-    "status": "ok"
+    "algorithm": "RR",
+    "processes": [
+      {"id": "P1", "arrival_time": 0, "burst_time": 5},
+      {"id": "P2", "arrival_time": 1, "burst_time": 3}
+    ],
+    "time_quantum": 2
   }
   ```
+- `POST /api/cpu/compare`: Compares FCFS, SJF, and Round Robin on identical workload.
 
-### 2. Run Simulation
-- **Route:** `POST /api/simulate`
-- **Description:** Executes a single page replacement algorithm simulation.
-- **Request Body:**
+### 4. Deadlock Management (Banker's Algorithm)
+- `POST /api/deadlock/safety`:
   ```json
   {
-    "sequence": [7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1],
-    "frames": 3,
-    "algorithm": "FIFO"
+    "available": [3, 3, 2],
+    "allocation": [[0, 1, 0], [2, 0, 0], [3, 0, 2], [2, 1, 1], [0, 0, 2]],
+    "max": [[7, 5, 3], [3, 2, 2], [9, 0, 2], [2, 2, 2], [4, 3, 3]],
+    "process_names": ["P0", "P1", "P2", "P3", "P4"],
+    "resource_names": ["A", "B", "C"]
   }
   ```
-- **Response `(200 OK)`:**
+- `POST /api/deadlock/request`:
   ```json
   {
-    "algorithm": "FIFO",
-    "frame_count": 3,
-    "total_pages": 20,
-    "hits": 5,
-    "faults": 15,
-    "hit_ratio": 0.25,
-    "fault_ratio": 0.75,
-    "sequence": [7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1],
-    "history": [
-      {
-        "step": 0,
-        "page": 7,
-        "frames": [7, null, null],
-        "is_hit": false,
-        "evicted": null
-      },
-      {
-        "step": 3,
-        "page": 2,
-        "frames": [2, 0, 1],
-        "is_hit": false,
-        "evicted": 7
-      }
-    ]
+    "available": [3, 3, 2],
+    "allocation": [[0, 1, 0], ...],
+    "max": [[7, 5, 3], ...],
+    "process_index": 1,
+    "request": [1, 0, 2]
   }
   ```
-
-### 3. Compare Algorithms
-- **Route:** `POST /api/compare`
-- **Description:** Runs FIFO, LRU, and Optimal on identical inputs and returns comparative metrics.
-- **Request Body:**
-  ```json
-  {
-    "sequence": [7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1],
-    "frames": 3
-  }
-  ```
-- **Response `(200 OK)`:**
-  ```json
-  {
-    "sequence": [7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1],
-    "frame_count": 3,
-    "total_pages": 20,
-    "results": {
-      "FIFO": {
-        "algorithm": "FIFO",
-        "hits": 5,
-        "faults": 15,
-        "hit_ratio": 0.25,
-        "fault_ratio": 0.75
-      },
-      "LRU": {
-        "algorithm": "LRU",
-        "hits": 8,
-        "faults": 12,
-        "hit_ratio": 0.4,
-        "fault_ratio": 0.6
-      },
-      "OPTIMAL": {
-        "algorithm": "Optimal",
-        "hits": 11,
-        "faults": 9,
-        "hit_ratio": 0.55,
-        "fault_ratio": 0.45
-      }
-    },
-    "summary": {
-      "best_algorithm": "Optimal",
-      "best_algorithms": ["Optimal"],
-      "fewest_faults": 9
-    }
-  }
-  ```
-
-### Error Responses
-All endpoints enforce input validation and return consistent error structures:
-```json
-{
-  "error": {
-    "message": "Invalid input",
-    "details": "Invalid page value '-1' at index 4: page numbers must be non-negative (>= 0)."
-  }
-}
-```
 
 ---
 
-## 14. Testing
+## 10. Automated Testing & Verification
 
-Memora includes an automated test suite executed with Python's built-in `unittest` runner.
+Run the complete test suite containing **96 passing tests**:
 
-### Running the Test Suite
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-### Test Suite Structure (58 Tests, 100% Passing)
-- **`test_api.py` (21 tests):** HTTP status codes, JSON response schemas, regression checks on reference sequences, Bélády anomaly sequence validation, 400/404/405 error handlers, dashboard delivery, and static asset serving.
-- **`test_fifo.py` (6 tests):** Queue eviction order, reference sequence accuracy, single-frame edge cases, repeated pages, and frame residency invariants.
-- **`test_lru.py` (4 tests):** Temporal recency updates on hits, eviction of least recently accessed pages, and reference sequence regression.
-- **`test_optimal.py` (3 tests):** Lookahead distance calculation, eviction of pages never referenced again, and deterministic tie-breaking.
-- **`test_metrics.py` (4 tests):** Hit/fault derivations, ratio precision, single-winner identification, and tied-winner reporting.
-- **`test_simulator.py` (5 tests):** Central dispatcher coordination, case-insensitive algorithm names, and error handling.
-- **`test_validator.py` (9 tests):** Boundary checks, non-negative assertions, float rejection, and explicit boolean rejection (`True`/`False`).
-- **`test_datasets.py` (2 tests):** Schema integrity of `datasets/sample_input.json` and mathematical verification of `datasets/test_cases.json`.
-- **`test_utils.py` (4 tests):** Directory creation, logger configuration, and CSV export file handling.
+### Test Coverage Summary:
+- **`test_api.py` (21 tests):** Memory REST API routes, error handlers, static assets.
+- **`test_cpu_scheduling.py` (10 tests):** FCFS arrival ordering, non-preemptive SJF tie-breaking, Round Robin time slicing, CPU idle periods, process validation, and `/api/cpu/*` endpoints.
+- **`test_deadlock.py` (16 tests):** Banker's Safety Algorithm, classic safe state verification, unsafe state detection, resource request granting vs. rejection, matrix validation, and `/api/deadlock/*` endpoints.
+- **`test_mathematical_audit.py` (12 tests):** Cross-subsystem mathematical invariants, simultaneous/staggered CPU benchmark regressions, Bélády's anomaly, and Banker's request immutability.
+- **`test_fifo.py` (6 tests):** FIFO queue eviction and Bélády anomaly validation.
+- **`test_lru.py` (4 tests):** Temporal recency preservation and hit updates.
+- **`test_optimal.py` (3 tests):** Lookahead distance calculation and deterministic tie-breaking.
+- **`test_metrics.py` (4 tests):** Memory formula consistency and invariant checks ($H+F=N$).
+- **`test_simulator.py` (5 tests):** Memory central dispatcher coordination.
+- **`test_validator.py` (9 tests):** Defensive boundary checks and type validation.
+- **`test_datasets.py` (2 tests):** Predefined JSON dataset schema integrity.
+- **`test_utils.py` (4 tests):** Directory creation, logger configuration, CSV exports.
 
 ---
 
-## 15. Limitations
+## 11. Viva Defense & Examination Guide
 
-For academic transparency and viva defense, note the following architectural boundaries:
-1. **Logical Simulation Scope:** Memora simulates page replacement algorithms at the logical reference level. It does not interface with host kernel paging tables, secondary disk drivers, or MMU hardware caches.
-2. **Optimal Realizability:** The Optimal algorithm requires complete offline knowledge of all future memory accesses. It is implemented purely as a performance benchmark and cannot be deployed in general-purpose operating system schedulers.
-3. **Fixed Allocation Model:** The simulator models local fixed-frame allocation where a single process has a static allocation of frames ($1 \le m \le 8$) throughout execution, rather than global or dynamic working-set allocations.
+### Q1: Why does Bélády's Anomaly occur in FIFO but never in LRU?
+> **Answer:** FIFO is not a stack algorithm. A stack algorithm satisfies the inclusion property $S_m(t) \subseteq S_{m+1}(t)$, meaning the resident pages with $m$ frames are always a subset of those with $m+1$ frames. In FIFO, adding a frame shifts the order of page evictions such that pages needed in the near future are evicted prematurely, causing more faults. LRU and Optimal strictly satisfy the inclusion property and are mathematically immune to Bélády's Anomaly.
+
+### Q2: Why is Non-Preemptive SJF optimal for Average Waiting Time?
+> **Answer:** Shortest Job First schedules processes in increasing order of CPU burst. By executing shorter tasks first, subsequent jobs spend less total time queued behind large CPU bursts (avoiding the Convoy Effect), mathematically minimizing the arithmetic mean of waiting times.
+
+### Q3: What is the difference between an Unsafe State and Deadlock in Banker's Algorithm?
+> **Answer:** An **unsafe state is NOT a deadlock**. An unsafe state simply means the operating system cannot guarantee that all processes will finish if every process simultaneously requests its maximum declared claims. The system may continue running without deadlocking if processes do not invoke their maximum demands; however, to strictly avoid deadlock, the OS avoids transitions into unsafe states.
+
+### Q4: How does Round Robin ready queue management work upon time slice expiration?
+> **Answer:** When a process completes its quantum slice at time $t$, if another process arrives at the exact same clock tick $t$, the newly arriving process must be enqueued into the ready queue *before* the preempted process is re-enqueued. Memora strictly adheres to this standard Silberschatz convention.
 
 ---
 
-## 16. Future Improvements
+## 12. Author & Repository
 
-- **Additional Replacement Heuristics:** Implement Second-Chance (Clock), Not Recently Used (NRU), and Least Frequently Used (LFU).
-- **Working-Set Dynamic Allocation:** Simulate page-fault frequency (PFF) algorithms with dynamically expanding and contracting frame pools.
-- **Direct CSV Import:** Enable direct browser drag-and-drop uploading of real-world application memory address traces.
-
----
-
-## 17. Author & Repository
-
-- **Project:** Memora — Virtual Memory Simulator for Page Replacement Algorithm Analysis
-- **Coursework:** B.Tech Computer Science & Engineering, Operating Systems
+- **Project Title:** Memora — An Integrated Operating Systems Resource-Management Simulator
+- **Coursework:** B.Tech Computer Science & Engineering, Operating Systems Capstone
 - **GitHub Repository:** [https://github.com/obscure-01/Memora](https://github.com/obscure-01/Memora)
-- **License:** Academic Educational License
+- **Project Nature:** Academic Educational Capstone Project

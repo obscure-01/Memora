@@ -19,5 +19,7 @@ if __name__ == "__main__":
     print("    GET  http://127.0.0.1:5000/api/health")
     print("    POST http://127.0.0.1:5000/api/simulate")
     print("    POST http://127.0.0.1:5000/api/compare")
+    print("    POST http://127.0.0.1:5000/api/cpu/schedule")
+    print("    POST http://127.0.0.1:5000/api/deadlock/safety")
     print("=" * 60)
     app.run(host="127.0.0.1", port=5000, debug=True)

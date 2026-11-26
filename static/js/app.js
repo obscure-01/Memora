@@ -635,4 +635,803 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // ==========================================================================
+  // TOP-LEVEL MODULE NAVIGATION CONTROLLER
+  // ==========================================================================
+
+  const moduleTabs = document.querySelectorAll('.module-tab-btn');
+  const moduleContents = document.querySelectorAll('.module-tab-content');
+
+  moduleTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const targetModule = tab.dataset.module;
+      moduleTabs.forEach(t => {
+        const isActive = (t === tab);
+        t.classList.toggle('active', isActive);
+        t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
+      moduleContents.forEach(content => {
+        const matches = (content.id === `module-${targetModule}`);
+        content.classList.toggle('active', matches);
+        content.style.display = matches ? 'block' : 'none';
+      });
+    });
+  });
+
+  // ==========================================================================
+  // MODULE 2: CPU SCHEDULING CONTROLLER
+  // ==========================================================================
+
+  const CPU_PRESETS = {
+    'staggered': [
+      { id: 'P1', arrival_time: 0, burst_time: 5 },
+      { id: 'P2', arrival_time: 1, burst_time: 3 },
+      { id: 'P3', arrival_time: 2, burst_time: 8 },
+      { id: 'P4', arrival_time: 3, burst_time: 6 }
+    ],
+    'simultaneous': [
+      { id: 'P1', arrival_time: 0, burst_time: 4 },
+      { id: 'P2', arrival_time: 0, burst_time: 3 },
+      { id: 'P3', arrival_time: 0, burst_time: 1 },
+      { id: 'P4', arrival_time: 0, burst_time: 2 }
+    ],
+    'idle-gap': [
+      { id: 'P1', arrival_time: 0, burst_time: 2 },
+      { id: 'P2', arrival_time: 5, burst_time: 3 },
+      { id: 'P3', arrival_time: 6, burst_time: 2 }
+    ],
+    'convoy': [
+      { id: 'P1', arrival_time: 0, burst_time: 24 },
+      { id: 'P2', arrival_time: 1, burst_time: 3 },
+      { id: 'P3', arrival_time: 2, burst_time: 3 }
+    ]
+  };
+
+  const CPU_ALGO_DESCRIPTIONS = {
+    'FCFS': '<strong>FCFS (First-Come First-Served):</strong> Non-preemptive scheduling in order of process arrival. Simple queue discipline; susceptible to the Convoy Effect.',
+    'SJF': '<strong>SJF (Shortest Job First):</strong> Non-preemptive scheduling selecting the process with minimal CPU burst. Mathematically minimizes Average Waiting Time (AWT).',
+    'RR': '<strong>Round Robin (RR):</strong> Preemptive time-slicing using quantum q. Ensures fair CPU allocation and optimal interactive response time.'
+  };
+
+  const PID_COLORS = [
+    '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6',
+    '#ec4899', '#06b6d4', '#14b8a6', '#f97316'
+  ];
+
+  let currentCpuProcesses = JSON.parse(JSON.stringify(CPU_PRESETS['staggered']));
+  const processTableBody = document.getElementById('process-table-body');
+  const btnAddProcess = document.getElementById('btn-add-process');
+  const cpuAlgoRadios = document.querySelectorAll('input[name="cpu-algorithm"]');
+  const cpuAlgoBadge = document.getElementById('cpu-algo-badge');
+  const cpuAlgoDesc = document.getElementById('cpu-algo-desc');
+  const tqInput = document.getElementById('cpu-time-quantum');
+  const tqBadge = document.getElementById('tq-badge');
+  const btnTqDec = document.getElementById('btn-tq-dec');
+  const btnTqInc = document.getElementById('btn-tq-inc');
+  const btnRunCpu = document.getElementById('btn-run-cpu');
+  const btnCompareCpu = document.getElementById('btn-compare-cpu');
+  const btnResetCpu = document.getElementById('btn-reset-cpu');
+  const cpuPresetBtns = document.querySelectorAll('[data-cpu-preset]');
+
+  function markCpuOutdated() {
+    const ganttBadge = document.getElementById('cpu-gantt-badge');
+    if (ganttBadge) {
+      ganttBadge.textContent = 'Workload Modified — Run to Refresh';
+      ganttBadge.className = 'badge badge-warning';
+    }
+    const wrapper = document.getElementById('gantt-chart-wrapper');
+    if (wrapper) wrapper.style.opacity = '0.65';
+    const resTable = document.getElementById('cpu-results-table');
+    if (resTable) resTable.style.opacity = '0.65';
+    const compSec = document.getElementById('cpu-comparison-section');
+    if (compSec) compSec.style.display = 'none';
+  }
+
+  function clearCpuOutdated() {
+    const ganttBadge = document.getElementById('cpu-gantt-badge');
+    if (ganttBadge) {
+      ganttBadge.textContent = 'Timeline';
+      ganttBadge.className = 'badge';
+    }
+    const wrapper = document.getElementById('gantt-chart-wrapper');
+    if (wrapper) wrapper.style.opacity = '1';
+    const resTable = document.getElementById('cpu-results-table');
+    if (resTable) resTable.style.opacity = '1';
+  }
+
+  function getSelectedCpuAlgorithm() {
+    const checked = document.querySelector('input[name="cpu-algorithm"]:checked');
+    return checked ? checked.value : 'FCFS';
+  }
+
+  function renderProcessInputTable() {
+    if (!processTableBody) return;
+    processTableBody.innerHTML = '';
+    currentCpuProcesses.forEach((p, idx) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input type="text" class="input-cell pid-input" value="${p.id}" style="width: 55px; padding: 4px; border-radius: 4px; background: #1f2937; color: #fff; border: 1px solid #374151;"></td>
+        <td><input type="number" min="0" class="input-cell at-input" value="${p.arrival_time}" style="width: 55px; padding: 4px; border-radius: 4px; background: #1f2937; color: #fff; border: 1px solid #374151;"></td>
+        <td><input type="number" min="1" class="input-cell bt-input" value="${p.burst_time}" style="width: 55px; padding: 4px; border-radius: 4px; background: #1f2937; color: #fff; border: 1px solid #374151;"></td>
+        <td><button class="btn btn-sm btn-delete-proc" data-idx="${idx}" style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; padding: 2px 6px; border-radius: 4px; cursor: pointer;">✕</button></td>
+      `;
+      processTableBody.appendChild(tr);
+    });
+
+    // Attach input listeners to cells for live change detection
+    document.querySelectorAll('.pid-input, .at-input, .bt-input').forEach(input => {
+      input.addEventListener('input', () => {
+        markCpuOutdated();
+      });
+    });
+
+    // Delete buttons
+    document.querySelectorAll('.btn-delete-proc').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = parseInt(e.target.dataset.idx, 10);
+        if (currentCpuProcesses.length <= 1) {
+          showToast('At least one process is required.', 'error');
+          return;
+        }
+        currentCpuProcesses.splice(idx, 1);
+        renderProcessInputTable();
+        markCpuOutdated();
+      });
+    });
+  }
+
+  function syncProcessesFromInputTable() {
+    const pids = document.querySelectorAll('.pid-input');
+    const ats = document.querySelectorAll('.at-input');
+    const bts = document.querySelectorAll('.bt-input');
+    const parsed = [];
+    for (let i = 0; i < pids.length; i++) {
+      const pid = pids[i].value.trim() || `P${i + 1}`;
+      const at = Math.max(0, parseInt(ats[i].value, 10) || 0);
+      const bt = Math.max(1, parseInt(bts[i].value, 10) || 1);
+      parsed.push({ id: pid, arrival_time: at, burst_time: bt });
+    }
+    currentCpuProcesses = parsed;
+    return parsed;
+  }
+
+  if (btnAddProcess) {
+    btnAddProcess.addEventListener('click', () => {
+      syncProcessesFromInputTable();
+      const nextId = `P${currentCpuProcesses.length + 1}`;
+      const lastAt = currentCpuProcesses.length > 0 ? currentCpuProcesses[currentCpuProcesses.length - 1].arrival_time + 1 : 0;
+      currentCpuProcesses.push({ id: nextId, arrival_time: lastAt, burst_time: 4 });
+      renderProcessInputTable();
+      markCpuOutdated();
+    });
+  }
+
+  cpuPresetBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      cpuPresetBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const presetKey = btn.dataset.cpuPreset;
+      if (CPU_PRESETS[presetKey]) {
+        currentCpuProcesses = JSON.parse(JSON.stringify(CPU_PRESETS[presetKey]));
+        renderProcessInputTable();
+        executeCpuSchedule(false);
+        showToast(`Loaded ${btn.textContent} workload`, 'info');
+      }
+    });
+  });
+
+  cpuAlgoRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+      const val = radio.value;
+      if (cpuAlgoBadge) cpuAlgoBadge.textContent = val;
+      if (cpuAlgoDesc && CPU_ALGO_DESCRIPTIONS[val]) {
+        cpuAlgoDesc.innerHTML = CPU_ALGO_DESCRIPTIONS[val];
+      }
+      document.querySelectorAll('[data-cpu-algo]').forEach(label => {
+        label.classList.toggle('active', label.dataset.cpuAlgo === val);
+      });
+      executeCpuSchedule(true);
+    });
+  });
+
+  if (btnTqDec) {
+    btnTqDec.addEventListener('click', () => {
+      let val = parseInt(tqInput.value, 10) || 2;
+      if (val > 1) {
+        val -= 1;
+        tqInput.value = val;
+        if (tqBadge) tqBadge.textContent = `${val} ms`;
+        markCpuOutdated();
+      }
+    });
+  }
+
+  if (btnTqInc) {
+    btnTqInc.addEventListener('click', () => {
+      let val = parseInt(tqInput.value, 10) || 2;
+      if (val < 50) {
+        val += 1;
+        tqInput.value = val;
+        if (tqBadge) tqBadge.textContent = `${val} ms`;
+        markCpuOutdated();
+      }
+    });
+  }
+
+  if (tqInput) {
+    tqInput.addEventListener('input', () => {
+      let val = parseInt(tqInput.value, 10) || 2;
+      if (val < 1) val = 1;
+      if (tqBadge) tqBadge.textContent = `${val} ms`;
+      markCpuOutdated();
+    });
+  }
+
+  if (btnResetCpu) {
+    btnResetCpu.addEventListener('click', () => {
+      currentCpuProcesses = JSON.parse(JSON.stringify(CPU_PRESETS['staggered']));
+      renderProcessInputTable();
+      executeCpuSchedule(false);
+      showToast('CPU workload reset to default', 'info');
+    });
+  }
+
+  function renderCpuGantt(gantt, totalTime) {
+    const bar = document.getElementById('gantt-timeline-bar');
+    const ticks = document.getElementById('gantt-ticks');
+    const legend = document.getElementById('gantt-legend');
+    if (!bar || !ticks) return;
+
+    bar.innerHTML = '';
+    ticks.innerHTML = '';
+    if (legend) legend.innerHTML = '';
+
+    const safeTotal = Math.max(1, totalTime);
+    const seenPids = new Set();
+    let lastTickPct = 0;
+
+    // Zero tick
+    const zeroTick = document.createElement('span');
+    zeroTick.className = 'gantt-tick';
+    zeroTick.style.left = '0%';
+    zeroTick.textContent = '0';
+    ticks.appendChild(zeroTick);
+
+    gantt.forEach((seg, idx) => {
+      const pid = seg.process || seg.process_id || 'IDLE';
+      const start = seg.start !== undefined ? seg.start : seg.start_time;
+      const end = seg.end !== undefined ? seg.end : seg.end_time;
+      const duration = end - start;
+      const widthPct = (duration / safeTotal) * 100;
+
+      const segDiv = document.createElement('div');
+      segDiv.className = `gantt-segment ${pid === 'IDLE' ? 'idle-segment' : ''}`;
+      segDiv.style.width = `${widthPct}%`;
+
+      let segColor = '#4b5563';
+      if (pid !== 'IDLE') {
+        const colorIdx = Math.abs(pid.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)) % PID_COLORS.length;
+        segColor = PID_COLORS[colorIdx];
+        segDiv.style.backgroundColor = segColor;
+        seenPids.add(pid);
+      }
+
+      segDiv.title = `${pid} [${start} - ${end}] (${duration} ms)`;
+      if (widthPct >= 3.5) {
+        segDiv.innerHTML = `<span>${pid}</span>`;
+      } else {
+        segDiv.innerHTML = `<span style="font-size:0.65rem;">•</span>`;
+      }
+      bar.appendChild(segDiv);
+
+      // Add end tick avoiding collisions
+      const endPct = (end / safeTotal) * 100;
+      const isLast = (idx === gantt.length - 1);
+      if (endPct - lastTickPct >= 4.0 || isLast) {
+        const endTick = document.createElement('span');
+        endTick.className = 'gantt-tick';
+        endTick.style.left = `${endPct}%`;
+        endTick.textContent = `${end}`;
+        ticks.appendChild(endTick);
+        lastTickPct = endPct;
+      }
+    });
+
+    if (legend) {
+      Array.from(seenPids).forEach(pid => {
+        const colorIdx = Math.abs(pid.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)) % PID_COLORS.length;
+        const color = PID_COLORS[colorIdx];
+        const item = document.createElement('div');
+        item.className = 'gantt-legend-item';
+        item.innerHTML = `<span class="gantt-legend-box" style="background: ${color};"></span><span>${pid}</span>`;
+        legend.appendChild(item);
+      });
+    }
+  }
+
+  function renderCpuResultsTable(processes) {
+    const tbody = document.getElementById('cpu-results-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    processes.forEach(p => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${p.id}</strong></td>
+        <td>${p.arrival_time}</td>
+        <td>${p.burst_time}</td>
+        <td>${p.completion_time}</td>
+        <td>${p.turnaround_time}</td>
+        <td>${p.waiting_time}</td>
+        <td>${p.response_time}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function updateCpuMetrics(metrics) {
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val;
+    };
+    setVal('cpu-val-awt', metrics.avg_waiting_time !== undefined ? metrics.avg_waiting_time.toFixed(2) : '-');
+    setVal('cpu-val-atat', metrics.avg_turnaround_time !== undefined ? metrics.avg_turnaround_time.toFixed(2) : '-');
+    setVal('cpu-val-art', metrics.avg_response_time !== undefined ? metrics.avg_response_time.toFixed(2) : '-');
+    setVal('cpu-val-util', metrics.cpu_utilization !== undefined ? metrics.cpu_utilization.toFixed(2) : '-');
+    setVal('cpu-val-tp', metrics.throughput !== undefined ? metrics.throughput.toFixed(4) : '-');
+  }
+
+  async function executeCpuSchedule(showNotification = true) {
+    const procs = syncProcessesFromInputTable();
+    const algo = getSelectedCpuAlgorithm();
+    const tq = parseInt(tqInput ? tqInput.value : 2, 10) || 2;
+
+    if (btnRunCpu) {
+      btnRunCpu.disabled = true;
+      btnRunCpu.style.opacity = '0.6';
+    }
+
+    try {
+      const resp = await MemoraAPI.scheduleCpu(algo, procs, tq);
+      if (!resp.ok) {
+        showToast(`Error: ${resp.error}`, 'error');
+        return;
+      }
+      const data = resp.data;
+      updateCpuMetrics(data.metrics);
+      renderCpuGantt(data.gantt_chart, data.metrics.total_time);
+      renderCpuResultsTable(data.processes);
+      clearCpuOutdated();
+      if (showNotification) {
+        showToast(`Executed ${algo} CPU scheduling successfully`, 'success');
+      }
+    } catch (err) {
+      showToast(`Failed: ${err.message}`, 'error');
+    } finally {
+      if (btnRunCpu) {
+        btnRunCpu.disabled = false;
+        btnRunCpu.style.opacity = '1';
+      }
+    }
+  }
+
+  if (btnRunCpu) {
+    btnRunCpu.addEventListener('click', () => {
+      executeCpuSchedule(true);
+    });
+  }
+
+  if (btnCompareCpu) {
+    btnCompareCpu.addEventListener('click', async () => {
+      const procs = syncProcessesFromInputTable();
+      const tq = parseInt(tqInput ? tqInput.value : 2, 10) || 2;
+
+      btnCompareCpu.disabled = true;
+      btnCompareCpu.style.opacity = '0.6';
+
+      try {
+        const resp = await MemoraAPI.compareCpu(procs, tq);
+        if (!resp.ok) {
+          showToast(`Error: ${resp.error}`, 'error');
+          return;
+        }
+        const comp = resp.data;
+        const compSec = document.getElementById('cpu-comparison-section');
+        const tbody = document.getElementById('cpu-comp-tbody');
+        if (tbody) {
+          tbody.innerHTML = '';
+          comp.comparison_table.forEach(row => {
+            const tr = document.createElement('tr');
+            const isBest = row.algorithm === comp.summary.best_waiting_time_algorithm;
+            tr.innerHTML = `
+              <td><strong>${row.algorithm}</strong> ${isBest ? '<span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; margin-left: 4px;">Best AWT</span>' : ''}</td>
+              <td>${row.avg_waiting_time.toFixed(2)} ms</td>
+              <td>${row.avg_turnaround_time.toFixed(2)} ms</td>
+              <td>${row.avg_response_time.toFixed(2)} ms</td>
+              <td>${row.cpu_utilization.toFixed(2)}%</td>
+              <td>${row.throughput.toFixed(4)}</td>
+              <td>${isBest ? 'Rank 1' : 'Rank 2'}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
+
+        const bannerTitle = document.getElementById('cpu-winner-title');
+        const bannerExp = document.getElementById('cpu-winner-explanation');
+        if (bannerTitle) {
+          bannerTitle.textContent = `${comp.summary.best_waiting_time_algorithm} achieves minimum average waiting time (${comp.summary.lowest_avg_waiting_time.toFixed(2)} ms)`;
+        }
+        if (bannerExp) {
+          bannerExp.textContent = `Shortest Job First (SJF) minimizes Average Waiting Time when bursts are known. Round Robin provides preemptive responsiveness with time quantum q=${tq}.`;
+        }
+
+        if (compSec) compSec.style.display = 'block';
+
+        // Also display FCFS Gantt
+        const fcfsRes = comp.results.FCFS;
+        updateCpuMetrics(fcfsRes.metrics);
+        renderCpuGantt(fcfsRes.gantt_chart, fcfsRes.metrics.total_time);
+        renderCpuResultsTable(fcfsRes.processes);
+        clearCpuOutdated();
+
+        showToast('CPU algorithms comparison completed', 'success');
+      } catch (err) {
+        showToast(`Failed: ${err.message}`, 'error');
+      } finally {
+        btnCompareCpu.disabled = false;
+        btnCompareCpu.style.opacity = '1';
+      }
+    });
+  }
+
+  // Initialize process table
+  renderProcessInputTable();
+
+  // ==========================================================================
+  // MODULE 3: DEADLOCK MANAGEMENT CONTROLLER (BANKER'S ALGORITHM)
+  // ==========================================================================
+
+  const DEADLOCK_PRESETS = {
+    'classic': {
+      available: '3, 3, 2',
+      resources: 'A, B, C',
+      allocation: '0 1 0\n2 0 0\n3 0 2\n2 1 1\n0 0 2',
+      max: '7 5 3\n3 2 2\n9 0 2\n2 2 2\n4 3 3',
+      request_proc: 1,
+      request_vector: '1, 0, 2'
+    },
+    'unsafe': {
+      available: '0, 0',
+      resources: 'R1, R2',
+      allocation: '1 0\n0 1',
+      max: '2 1\n1 2',
+      request_proc: 0,
+      request_vector: '1, 0'
+    },
+    'single': {
+      available: '2',
+      resources: 'R1',
+      allocation: '1\n2',
+      max: '5\n3',
+      request_proc: 0,
+      request_vector: '2'
+    }
+  };
+
+  const dlAvailableInput = document.getElementById('dl-available-input');
+  const dlResourcesInput = document.getElementById('dl-resources-input');
+  const dlAllocInput = document.getElementById('dl-allocation-input');
+  const dlMaxInput = document.getElementById('dl-max-input');
+  const dlReqProcSelect = document.getElementById('dl-request-proc');
+  const dlReqVectorInput = document.getElementById('dl-request-vector');
+  const btnCheckSafety = document.getElementById('btn-check-safety');
+  const btnEvalRequest = document.getElementById('btn-eval-request');
+  const dlPresetBtns = document.querySelectorAll('[data-deadlock-preset]');
+
+  function markDeadlockOutdated() {
+    const banner = document.getElementById('dl-status-banner');
+    const heading = document.getElementById('dl-status-heading');
+    const desc = document.getElementById('dl-status-desc');
+    const seqWrapper = document.getElementById('dl-safe-sequence-wrapper');
+    const reqCard = document.getElementById('dl-request-result-card');
+    const matricesTable = document.getElementById('dl-matrices-table');
+    const stepsTable = document.getElementById('dl-steps-table');
+
+    if (banner) {
+      banner.className = 'dl-status-banner warning';
+    }
+    if (heading) {
+      heading.textContent = 'INPUT MODIFIED — RE-RUN SAFETY CHECK';
+    }
+    if (desc) {
+      desc.textContent = 'System matrices or available resources have been modified. Click "Run Banker\'s Safety Check" to verify.';
+    }
+    if (seqWrapper) seqWrapper.style.opacity = '0.5';
+    if (matricesTable) matricesTable.style.opacity = '0.65';
+    if (stepsTable) stepsTable.style.opacity = '0.65';
+    if (reqCard) reqCard.style.display = 'none';
+  }
+
+  function clearDeadlockOutdated() {
+    const seqWrapper = document.getElementById('dl-safe-sequence-wrapper');
+    const matricesTable = document.getElementById('dl-matrices-table');
+    const stepsTable = document.getElementById('dl-steps-table');
+    if (seqWrapper) seqWrapper.style.opacity = '1';
+    if (matricesTable) matricesTable.style.opacity = '1';
+    if (stepsTable) stepsTable.style.opacity = '1';
+  }
+
+  function parseMatrixText(text) {
+    if (!text) return [];
+    return text.trim().split('\n').filter(line => line.trim().length > 0).map(line => {
+      return line.replace(/,/g, ' ').trim().split(/\s+/).map(x => parseInt(x, 10));
+    });
+  }
+
+  function parseVectorText(text) {
+    if (!text) return [];
+    return text.replace(/,/g, ' ').trim().split(/\s+/).map(x => parseInt(x, 10));
+  }
+
+  function getDeadlockPayload() {
+    const available = parseVectorText(dlAvailableInput.value);
+    const allocation = parseMatrixText(dlAllocInput.value);
+    const max = parseMatrixText(dlMaxInput.value);
+    const resRaw = dlResourcesInput.value.replace(/,/g, ' ').trim();
+    const resourceNames = resRaw ? resRaw.split(/\s+/) : null;
+    const processNames = allocation.map((_, i) => `P${i}`);
+
+    return { available, allocation, max, processNames, resourceNames };
+  }
+
+  function syncProcessSelectDropdown(numProcesses) {
+    if (!dlReqProcSelect) return;
+    const currentVal = parseInt(dlReqProcSelect.value, 10);
+    dlReqProcSelect.innerHTML = '';
+    for (let i = 0; i < numProcesses; i++) {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = `P${i}`;
+      if (i === currentVal) opt.selected = true;
+      dlReqProcSelect.appendChild(opt);
+    }
+  }
+
+  // Attach live input listeners for deadlock matrix inputs
+  if (dlAvailableInput) dlAvailableInput.addEventListener('input', markDeadlockOutdated);
+  if (dlResourcesInput) dlResourcesInput.addEventListener('input', markDeadlockOutdated);
+  if (dlAllocInput) {
+    dlAllocInput.addEventListener('input', () => {
+      markDeadlockOutdated();
+      const parsed = parseMatrixText(dlAllocInput.value);
+      if (parsed && parsed.length > 0) {
+        syncProcessSelectDropdown(parsed.length);
+      }
+    });
+  }
+  if (dlMaxInput) dlMaxInput.addEventListener('input', markDeadlockOutdated);
+
+  dlPresetBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      dlPresetBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const presetKey = btn.dataset.deadlockPreset;
+      const p = DEADLOCK_PRESETS[presetKey];
+      if (p) {
+        dlAvailableInput.value = p.available;
+        dlResourcesInput.value = p.resources;
+        dlAllocInput.value = p.allocation;
+        dlMaxInput.value = p.max;
+        dlReqVectorInput.value = p.request_vector;
+        const alloc = parseMatrixText(p.allocation);
+        syncProcessSelectDropdown(alloc.length);
+        if (dlReqProcSelect && p.request_proc !== undefined) {
+          dlReqProcSelect.value = p.request_proc;
+        }
+        executeDeadlockSafety(false);
+        showToast(`Loaded ${btn.textContent} preset`, 'info');
+      }
+    });
+  });
+
+  function renderDeadlockMatrices(data) {
+    const tbody = document.getElementById('dl-matrices-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const pNames = data.process_names || data.allocation.map((_, i) => `P${i}`);
+    for (let i = 0; i < data.allocation.length; i++) {
+      const tr = document.createElement('tr');
+      const allocStr = `[${data.allocation[i].join(', ')}]`;
+      const maxStr = `[${data.max[i].join(', ')}]`;
+      const needStr = `[${data.need[i].join(', ')}]`;
+
+      tr.innerHTML = `
+        <td><strong>${pNames[i]}</strong></td>
+        <td><code>${allocStr}</code></td>
+        <td><code>${maxStr}</code></td>
+        <td><code style="color: #60a5fa; font-weight: 700;">${needStr}</code></td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  function renderDeadlockSteps(steps) {
+    const tbody = document.getElementById('dl-steps-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    steps.forEach(s => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${s.step}</strong></td>
+        <td><span class="seq-badge" style="padding: 2px 8px; font-size: 0.8rem;">${s.process}</span></td>
+        <td><code>[${s.work_before.join(', ')}]</code></td>
+        <td><code>[${s.need.join(', ')}]</code></td>
+        <td><code>[${s.allocation.join(', ')}]</code></td>
+        <td><code>[${s.work_after.join(', ')}]</code></td>
+        <td><span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399;">${s.status}</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function updateDeadlockVerdict(data) {
+    const banner = document.getElementById('dl-status-banner');
+    const heading = document.getElementById('dl-status-heading');
+    const desc = document.getElementById('dl-status-desc');
+    const seqWrapper = document.getElementById('dl-safe-sequence-wrapper');
+    const seqBadges = document.getElementById('dl-safe-sequence-badges');
+
+    if (banner) {
+      banner.className = `dl-status-banner ${data.is_safe ? 'safe' : 'unsafe'}`;
+    }
+    if (heading) {
+      heading.textContent = data.is_safe ? 'SYSTEM IS IN A SAFE STATE' : 'SYSTEM IS IN AN UNSAFE STATE';
+    }
+    if (desc) {
+      desc.textContent = data.explanation;
+    }
+
+    if (seqBadges) {
+      seqBadges.innerHTML = '';
+      if (data.is_safe && data.safe_sequence && data.safe_sequence.length > 0) {
+        data.safe_sequence.forEach((pid, idx) => {
+          const badge = document.createElement('span');
+          badge.className = 'seq-badge';
+          badge.textContent = pid;
+          seqBadges.appendChild(badge);
+
+          if (idx < data.safe_sequence.length - 1) {
+            const arrow = document.createElement('span');
+            arrow.className = 'seq-arrow';
+            arrow.textContent = '→';
+            seqBadges.appendChild(arrow);
+          }
+        });
+        if (seqWrapper) seqWrapper.style.display = 'flex';
+      } else {
+        if (seqWrapper) seqWrapper.style.display = 'none';
+      }
+    }
+  }
+
+  async function executeDeadlockSafety(showNotification = true) {
+    try {
+      const payload = getDeadlockPayload();
+      if (btnCheckSafety) {
+        btnCheckSafety.disabled = true;
+        btnCheckSafety.style.opacity = '0.6';
+      }
+
+      const resp = await MemoraAPI.checkDeadlockSafety(
+        payload.available,
+        payload.allocation,
+        payload.max,
+        payload.processNames,
+        payload.resourceNames
+      );
+
+      if (!resp.ok) {
+        showToast(`Validation error: ${resp.error}`, 'error');
+        return;
+      }
+
+      const data = resp.data;
+      updateDeadlockVerdict(data);
+      renderDeadlockMatrices(data);
+      renderDeadlockSteps(data.steps);
+      syncProcessSelectDropdown(data.allocation.length);
+      clearDeadlockOutdated();
+
+      const reqCard = document.getElementById('dl-request-result-card');
+      if (reqCard) reqCard.style.display = 'none';
+
+      if (showNotification) {
+        showToast(
+          data.is_safe ? 'Safety check verified: Safe sequence exists' : 'Safety check warning: Unsafe state detected',
+          data.is_safe ? 'success' : 'error'
+        );
+      }
+    } catch (err) {
+      showToast(`Failed: ${err.message}`, 'error');
+    } finally {
+      if (btnCheckSafety) {
+        btnCheckSafety.disabled = false;
+        btnCheckSafety.style.opacity = '1';
+      }
+    }
+  }
+
+  if (btnCheckSafety) {
+    btnCheckSafety.addEventListener('click', () => {
+      executeDeadlockSafety(true);
+    });
+  }
+
+  if (btnEvalRequest) {
+    btnEvalRequest.addEventListener('click', async () => {
+      try {
+        const payload = getDeadlockPayload();
+        const pIdx = parseInt(dlReqProcSelect.value, 10);
+        const reqVector = parseVectorText(dlReqVectorInput.value);
+
+        btnEvalRequest.disabled = true;
+        btnEvalRequest.style.opacity = '0.6';
+
+        const resp = await MemoraAPI.requestDeadlockResource(
+          payload.available,
+          payload.allocation,
+          payload.max,
+          pIdx,
+          reqVector,
+          payload.processNames,
+          payload.resourceNames
+        );
+
+        if (!resp.ok) {
+          showToast(`Request error: ${resp.error}`, 'error');
+          return;
+        }
+
+        const reqData = resp.data;
+        const reqCard = document.getElementById('dl-request-result-card');
+        const reqBadge = document.getElementById('dl-request-badge');
+        const reqContent = document.getElementById('dl-request-content');
+
+        if (reqCard) reqCard.style.display = 'block';
+        if (reqBadge) {
+          reqBadge.textContent = reqData.approved ? 'GRANTED' : 'DENIED / MUST WAIT';
+          reqBadge.style.background = reqData.approved ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+          reqBadge.style.color = reqData.approved ? '#34d399' : '#f87171';
+        }
+
+        if (reqContent) {
+          reqContent.innerHTML = `
+            <div style="font-size: 0.95rem; line-height: 1.6;">
+              <p><strong>Evaluation Decision:</strong> <span style="color: ${reqData.approved ? '#34d399' : '#f87171'}; font-weight: 700;">${reqData.approved ? 'REQUEST GRANTED IMMEDIATELY' : 'REQUEST DENIED — PROCESS MUST WAIT'}</span></p>
+              <p style="margin-top: 0.5rem; color: var(--text-secondary);">${reqData.reason}</p>
+              ${reqData.approved && reqData.safety_result ? `
+                <div style="margin-top: 0.75rem; padding: 0.75rem; background: var(--bg-surface-elevated); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                  <span style="font-size: 0.82rem; color: var(--text-secondary);">Resulting Safe Sequence:</span>
+                  <strong style="color: #60a5fa; margin-left: 0.5rem;">${reqData.safety_result.safe_sequence.join(' → ')}</strong>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        }
+
+        showToast(reqData.approved ? 'Resource request granted safely' : 'Resource request denied to prevent deadlock', reqData.approved ? 'success' : 'error');
+      } catch (err) {
+        showToast(`Evaluation failed: ${err.message}`, 'error');
+      } finally {
+        btnEvalRequest.disabled = false;
+        btnEvalRequest.style.opacity = '1';
+      }
+    });
+  }
+
+  // Initial silent execution of CPU scheduling and Deadlock safety check on load
+  executeCpuSchedule(false);
+  executeDeadlockSafety(false);
+
 });

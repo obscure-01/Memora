@@ -101,10 +101,83 @@ const MemoraAPI = (() => {
     });
   }
 
+  /**
+   * Run single CPU scheduling algorithm simulation (FCFS, SJF, RR).
+   * POST /api/cpu/schedule
+   */
+  async function scheduleCpu(algorithm, processes, timeQuantum = 2) {
+    const payload = {
+      algorithm,
+      processes,
+      time_quantum: timeQuantum,
+    };
+    return await request('/api/cpu/schedule', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  /**
+   * Compare FCFS, SJF, and Round Robin on identical workload.
+   * POST /api/cpu/compare
+   */
+  async function compareCpu(processes, timeQuantum = 2) {
+    const payload = {
+      processes,
+      time_quantum: timeQuantum,
+    };
+    return await request('/api/cpu/compare', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  /**
+   * Execute Banker's Safety Algorithm to verify safe state and sequence.
+   * POST /api/deadlock/safety
+   */
+  async function checkDeadlockSafety(available, allocation, maxMatrix, processNames = null, resourceNames = null) {
+    const payload = {
+      available,
+      allocation,
+      max: maxMatrix,
+      process_names: processNames,
+      resource_names: resourceNames,
+    };
+    return await request('/api/deadlock/safety', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  /**
+   * Evaluate a process's resource request using Banker's Algorithm.
+   * POST /api/deadlock/request
+   */
+  async function requestDeadlockResource(available, allocation, maxMatrix, processIndex, requestVector, processNames = null, resourceNames = null) {
+    const payload = {
+      available,
+      allocation,
+      max: maxMatrix,
+      process_index: processIndex,
+      request: requestVector,
+      process_names: processNames,
+      resource_names: resourceNames,
+    };
+    return await request('/api/deadlock/request', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
   return {
     checkHealth,
     simulate,
     compare,
+    scheduleCpu,
+    compareCpu,
+    checkDeadlockSafety,
+    requestDeadlockResource,
   };
 })();
 
