@@ -1,0 +1,60 @@
+{
+    "datasets": [
+        {
+            "name": "basic_simulation",
+            "description": "A standard page reference string for basic FIFO, LRU, and Optimal simulation. Contains a mix of repeated and new pages to demonstrate both hits and faults.",
+            "page_sequence": [7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1],
+            "frame_count": 3,
+            "purpose": "General-purpose simulation and algorithm walkthrough"
+        },
+        {
+            "name": "page_hit_heavy",
+            "description": "A sequence with many repeated pages that fit within the frame count, resulting in a high hit ratio for all algorithms.",
+            "page_sequence": [1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3],
+            "frame_count": 3,
+            "purpose": "Demonstrate high hit ratio when pages fit in memory"
+        },
+        {
+            "name": "page_fault_heavy",
+            "description": "A sequence where every page is unique and exceeds the frame count, causing a fault on every access.",
+            "page_sequence": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "frame_count": 3,
+            "purpose": "Demonstrate worst-case scenario with 100% page faults"
+        },
+        {
+            "name": "replacement_demonstration",
+            "description": "Designed to show different replacement decisions across FIFO, LRU, and Optimal. After frames fill, the algorithms diverge in which page they evict.",
+            "page_sequence": [1, 2, 3, 4, 1, 2, 5, 1, 2, 3, 4, 5],
+            "frame_count": 3,
+            "purpose": "Highlight how replacement strategy affects which page is evicted"
+        },
+        {
+            "name": "algorithm_comparison",
+            "description": "A longer sequence specifically crafted to produce different fault counts across FIFO, LRU, and Optimal, making algorithm comparison meaningful.",
+            "page_sequence": [1, 2, 3, 4, 1, 2, 5, 1, 2, 3, 4, 5, 6, 1, 2, 3],
+            "frame_count": 4,
+            "purpose": "Compare all three algorithms on a dataset where their results differ"
+        },
+        {
+            "name": "single_page",
+            "description": "A trivial sequence containing only one repeated page. All accesses after the first should be hits regardless of algorithm.",
+            "page_sequence": [5, 5, 5, 5, 5],
+            "frame_count": 3,
+            "purpose": "Edge case: single repeated page"
+        },
+        {
+            "name": "single_frame",
+            "description": "Only one memory frame is available. Every page change causes a fault. Tests minimum-frame behavior.",
+            "page_sequence": [1, 2, 3, 1, 2, 3, 4],
+            "frame_count": 1,
+            "purpose": "Edge case: minimum frame count"
+        },
+        {
+            "name": "frames_exceed_pages",
+            "description": "More frames than unique pages. After all unique pages are loaded, every subsequent access is a hit.",
+            "page_sequence": [1, 2, 3, 1, 2, 3, 2, 1],
+            "frame_count": 5,
+            "purpose": "Edge case: more frames than unique pages means no replacement needed"
+        }
+    ]
+}

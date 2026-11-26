@@ -1,0 +1,97 @@
+{
+    "description": "Test cases for verifying algorithm correctness. Expected results are mathematically verified by manual trace.",
+    "test_cases": [
+        {
+            "name": "fifo_basic_verified",
+            "description": "FIFO trace: 3 frames, sequence [7,0,1,2,0,3,0,4,2,3,0,3,2,1,2,0,1,7,0,1]. Known result: 15 faults, 5 hits.",
+            "page_sequence": [7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1],
+            "frame_count": 3,
+            "expected": {
+                "FIFO": {"faults": 15, "hits": 5}
+            }
+        },
+        {
+            "name": "lru_basic_verified",
+            "description": "LRU trace: 3 frames, same classic sequence. Known result: 12 faults, 8 hits.",
+            "page_sequence": [7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1],
+            "frame_count": 3,
+            "expected": {
+                "LRU": {"faults": 12, "hits": 8}
+            }
+        },
+        {
+            "name": "optimal_basic_verified",
+            "description": "Optimal trace: 3 frames, same classic sequence. Known result: 9 faults, 11 hits.",
+            "page_sequence": [7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1],
+            "frame_count": 3,
+            "expected": {
+                "Optimal": {"faults": 9, "hits": 11}
+            }
+        },
+        {
+            "name": "all_hits",
+            "description": "All pages fit in memory. After initial loading, all remaining accesses are hits.",
+            "page_sequence": [1, 2, 3, 1, 2, 3, 1, 2],
+            "frame_count": 3,
+            "expected": {
+                "FIFO": {"faults": 3, "hits": 5},
+                "LRU": {"faults": 3, "hits": 5},
+                "Optimal": {"faults": 3, "hits": 5}
+            }
+        },
+        {
+            "name": "all_faults",
+            "description": "Every page is unique. Every access is a fault regardless of algorithm.",
+            "page_sequence": [1, 2, 3, 4, 5],
+            "frame_count": 3,
+            "expected": {
+                "FIFO": {"faults": 5, "hits": 0},
+                "LRU": {"faults": 5, "hits": 0},
+                "Optimal": {"faults": 5, "hits": 0}
+            }
+        },
+        {
+            "name": "single_page_repeated",
+            "description": "Only one page, repeated. First access is a fault; all others are hits.",
+            "page_sequence": [4, 4, 4, 4],
+            "frame_count": 2,
+            "expected": {
+                "FIFO": {"faults": 1, "hits": 3},
+                "LRU": {"faults": 1, "hits": 3},
+                "Optimal": {"faults": 1, "hits": 3}
+            }
+        },
+        {
+            "name": "one_frame",
+            "description": "Single frame. A hit occurs only when the same page is accessed consecutively.",
+            "page_sequence": [1, 2, 1, 2, 1],
+            "frame_count": 1,
+            "expected": {
+                "FIFO": {"faults": 5, "hits": 0},
+                "LRU": {"faults": 5, "hits": 0},
+                "Optimal": {"faults": 5, "hits": 0}
+            }
+        },
+        {
+            "name": "empty_sequence",
+            "description": "Empty page sequence. Should be rejected by validation, not passed to algorithms.",
+            "page_sequence": [],
+            "frame_count": 3,
+            "expected_validation_error": true
+        },
+        {
+            "name": "zero_frames",
+            "description": "Zero frames. Should be rejected by validation.",
+            "page_sequence": [1, 2, 3],
+            "frame_count": 0,
+            "expected_validation_error": true
+        },
+        {
+            "name": "negative_frames",
+            "description": "Negative frame count. Should be rejected by validation.",
+            "page_sequence": [1, 2, 3],
+            "frame_count": -1,
+            "expected_validation_error": true
+        }
+    ]
+}
