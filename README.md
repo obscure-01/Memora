@@ -55,7 +55,8 @@ Understanding these algorithms — their mechanics, trade-offs, and performance 
 
 | Component         | Technology              |
 |-------------------|-------------------------|
-| Language          | Python 3.8+             |
+| Language          | Python 3.8+ (3.10+ recommended) |
+| Backend API       | Flask, Flask-CORS       |
 | Visualization     | Matplotlib              |
 | Data Formats      | JSON (input), CSV (output) |
 | Shell Integration | Bash (Git Bash on Windows) |
@@ -69,8 +70,9 @@ Understanding these algorithms — their mechanics, trade-offs, and performance 
 
 ```
 Memora/
-├── main.py                    # Application entry point
-├── README.md                  # This file
+├── app.py                     # Flask backend entry point (REST API)
+├── main.py                    # CLI application entry point
+├── README.md                  # Master documentation
 ├── requirements.txt           # Python dependencies
 ├── .gitignore                 # Git exclusion rules
 │
@@ -88,6 +90,10 @@ Memora/
 │   ├── analysis/              # Analysis and reporting
 │   │   ├── comparison.py      #   Algorithm comparison
 │   │   └── visualization.py   #   Chart generation (Matplotlib)
+│   │
+│   ├── api/                   # Flask REST API Layer
+│   │   ├── app.py             #   Flask app factory & CORS configuration
+│   │   └── routes.py          #   API route handlers (/api/health, /api/simulate, /api/compare)
 │   │
 │   └── utils/                 # Shared utilities
 │       ├── file_handler.py    #   JSON/CSV file operations
@@ -107,18 +113,21 @@ Memora/
 │   ├── charts/                #   PNG charts
 │   └── logs/                  #   Application logs
 │
-├── tests/                     # Unit tests
+├── tests/                     # Unit tests (54 passing tests)
 │   ├── test_fifo.py
 │   ├── test_lru.py
 │   ├── test_optimal.py
 │   ├── test_metrics.py
 │   ├── test_validator.py
+│   ├── test_simulator.py
 │   ├── test_utils.py
-│   └── test_datasets.py
+│   ├── test_datasets.py
+│   └── test_api.py            #   Flask API endpoint tests
 │
 └── docs/                      # Documentation
     ├── architecture.md        #   System architecture
     ├── project_report.md      #   Academic project report
+    ├── phase1_audit_report.md #   Quality audit report
     └── screenshots/           #   Demonstration screenshots
 ```
 
@@ -205,11 +214,11 @@ python -m unittest discover -s tests
 
 ## Project Phases
 
-| Phase | Focus                              | Status         |
-|-------|------------------------------------|----------------|
-| 1     | System Design & Project Foundation | ✅ Complete     |
-| 2     | Core Implementation & Integration  | ✅ Complete     |
-| 3     | Extended Analysis & Viva Submission| 🔲 Planned     |
+| Phase | Focus                                                | Status         |
+|-------|------------------------------------------------------|----------------|
+| 1     | Flask Backend/API Integration                        | ✅ Complete     |
+| 2     | Interactive Frontend                                 | 🔲 Planned     |
+| 3     | Integration, Comparison, Polish, and Final Submission| 🔲 Planned     |
 
 ---
 
@@ -222,6 +231,122 @@ python -m unittest discover -s tests
 | Optimal   | Replace the farthest future use | Theoretical |
 
 For detailed algorithm specifications, see [docs/architecture.md](docs/architecture.md).
+
+---
+
+## Flask Backend & REST API
+
+Memora includes a lightweight Flask REST backend that exposes the simulation engine for web clients and future frontend integration (planned for Phase 2).
+
+### Start the Flask Backend Server
+```bash
+python app.py
+```
+Server runs locally on `http://127.0.0.1:5000`.
+
+### API Endpoints
+
+#### 1. Health Check
+- **Route:** `GET /api/health`
+- **Description:** Verifies that the API backend is running.
+- **Response:**
+  ```json
+  {
+    "status": "ok",
+    "application": "Memora"
+  }
+  ```
+
+#### 2. Run Simulation
+- **Route:** `POST /api/simulate`
+- **Description:** Executes a single page replacement algorithm simulation.
+- **Request Body:**
+  ```json
+  {
+    "sequence": [7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1],
+    "frames": 3,
+    "algorithm": "FIFO"
+  }
+  ```
+- **Supported Algorithms:** `"FIFO"`, `"LRU"`, `"OPTIMAL"` (or `"Optimal"`, case-insensitive).
+- **Response:**
+  ```json
+  {
+    "algorithm": "FIFO",
+    "sequence": [7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1],
+    "frame_count": 3,
+    "total_pages": 20,
+    "hits": 5,
+    "faults": 15,
+    "hit_ratio": 0.25,
+    "fault_ratio": 0.75,
+    "history": [
+      {
+        "step": 0,
+        "page": 7,
+        "frames": [7, null, null],
+        "is_hit": false,
+        "evicted": null
+      },
+      {
+        "step": 3,
+        "page": 2,
+        "frames": [2, 0, 1],
+        "is_hit": false,
+        "evicted": 7
+      }
+    ]
+  }
+  ```
+
+#### 3. Compare Algorithms
+- **Route:** `POST /api/compare`
+- **Description:** Runs FIFO, LRU, and Optimal algorithms on identical input and returns comparative metrics.
+- **Request Body:**
+  ```json
+  {
+    "sequence": [7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1],
+    "frames": 3
+  }
+  ```
+- **Response:**
+  ```json
+  {
+    "sequence": [7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1],
+    "frame_count": 3,
+    "total_pages": 20,
+    "results": {
+      "FIFO": {
+        "hits": 5,
+        "faults": 15,
+        "hit_ratio": 0.25,
+        "fault_ratio": 0.75
+      },
+      "LRU": {
+        "hits": 8,
+        "faults": 12,
+        "hit_ratio": 0.4,
+        "fault_ratio": 0.6
+      },
+      "OPTIMAL": {
+        "hits": 11,
+        "faults": 9,
+        "hit_ratio": 0.55,
+        "fault_ratio": 0.45
+      }
+    },
+    "summary": {
+      "best_algorithm": "Optimal",
+      "best_algorithms": ["Optimal"],
+      "fewest_faults": 9
+    }
+  }
+  ```
+
+### Run Backend Unit Tests
+```bash
+python -m unittest tests/test_api.py -v
+```
 
 ---
 
