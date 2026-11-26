@@ -1,0 +1,38 @@
+# Python virtual environment
+venv/
+env/
+.venv/
+.env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Distribution / packaging
+*.egg-info/
+*.egg
+dist/
+build/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Generated results (regenerated on each run)
+results/reports/*.csv
+results/charts/*.png
+results/logs/*.log
+
+# Temporary files
+*.tmp
+*.bak
