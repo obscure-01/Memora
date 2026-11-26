@@ -13,7 +13,7 @@ Test Structure:
     test_simulator.py  — Simulator orchestration and comparison tests
     test_utils.py      — Logging and file handling utility tests
     test_datasets.py   — Sample dataset and test case verification tests
-    test_api.py        — Flask REST API endpoints and error handler tests
+    test_api.py        — Flask REST API endpoints, frontend dashboard, and asset tests
 
 Run all tests:
     python -m pytest tests/

@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Memora: Virtual Memory Simulator for Page Replacement Algorithm Analysis. Interactive simulation and comparison of FIFO, LRU, and Optimal algorithms.">
+  <title>Memora — Virtual Memory Simulator</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233b82f6'><path d='M4 6h16v12H4z'/><circle cx='8' cy='12' r='2' fill='%2310b981'/><circle cx='16' cy='12' r='2' fill='%23f59e0b'/></svg>">
+</head>
+<body>
+  <!-- Header / Navigation -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+            <line x1="6" y1="6" x2="6.01" y2="6"></line>
+            <line x1="6" y1="18" x2="6.01" y2="18"></line>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1 class="brand-title">Memora</h1>
+          <p class="brand-subtitle">Virtual Memory Simulator • Page Replacement Analysis</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span class="academic-badge">B.Tech CSE Capstone</span>
+        <div id="backend-status" class="status-indicator" title="Backend Server Health">
+          <span class="status-dot"></span>
+          <span class="status-label">Checking Backend...</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Application Body -->
+  <main class="app-main">
+    <div class="main-container">
+      
+      <!-- Left Column: Controls & Configuration -->
+      <aside class="control-panel">
+        
+        <!-- Algorithm Selection Card -->
+        <section class="card config-card">
+          <div class="card-header">
+            <h2 class="card-title">1. Select Algorithm</h2>
+            <span class="badge" id="current-algo-badge">FIFO</span>
+          </div>
+          <div class="algo-selector" role="radiogroup" aria-label="Page Replacement Algorithm">
+            <label class="algo-option active" data-algo="FIFO">
+              <input type="radio" name="algorithm" value="FIFO" checked>
+              <div class="algo-info">
+                <span class="algo-name">FIFO</span>
+                <span class="algo-tag">First-In, First-Out</span>
+              </div>
+            </label>
+            <label class="algo-option" data-algo="LRU">
+              <input type="radio" name="algorithm" value="LRU">
+              <div class="algo-info">
+                <span class="algo-name">LRU</span>
+                <span class="algo-tag">Least Recently Used</span>
+              </div>
+            </label>
+            <label class="algo-option" data-algo="Optimal">
+              <input type="radio" name="algorithm" value="Optimal">
+              <div class="algo-info">
+                <span class="algo-name">Optimal</span>
+                <span class="algo-tag">Bélády's Benchmark</span>
+              </div>
+            </label>
+          </div>
+          <div class="algo-description" id="algo-description-text">
+            <strong>FIFO (First In, First Out):</strong> Replaces the memory page that was loaded earliest. Simple queue discipline; susceptible to Belady's anomaly.
+          </div>
+        </section>
+
+        <!-- Page Sequence & Frames Card -->
+        <section class="card config-card">
+          <div class="card-header">
+            <h2 class="card-title">2. Simulation Inputs</h2>
+          </div>
+
+          <!-- Page Reference Sequence -->
+          <div class="form-group">
+            <div class="label-row">
+              <label for="page-sequence-input">Page Reference Sequence</label>
+              <button type="button" id="btn-random-sequence" class="btn-text" title="Generate 15-20 random page numbers">
+                🎲 Random
+              </button>
+            </div>
+            <textarea id="page-sequence-input" rows="3" placeholder="e.g. 7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1" spellcheck="false">7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1</textarea>
+            <div id="sequence-error" class="input-error-msg" style="display: none;"></div>
+
+            <!-- Preset Buttons -->
+            <div class="presets-row">
+              <span class="presets-label">Presets:</span>
+              <button type="button" class="btn-preset active" data-preset="reference">Reference Case</button>
+              <button type="button" class="btn-preset" data-preset="belady">Belady's Anomaly</button>
+              <button type="button" class="btn-preset" data-preset="locality">Locality</button>
+              <button type="button" class="btn-preset" data-preset="sequential">Sequential</button>
+            </div>
+          </div>
+
+          <!-- Frame Count Selection -->
+          <div class="form-group">
+            <div class="label-row">
+              <label for="frame-count-input">Physical Memory Frames</label>
+              <span class="badge" id="frame-count-badge">3 Frames</span>
+            </div>
+            <div class="frame-stepper">
+              <button type="button" id="btn-frame-dec" class="btn-stepper" aria-label="Decrease frames">-</button>
+              <input type="number" id="frame-count-input" min="1" max="8" value="3" aria-label="Frame Count">
+              <button type="button" id="btn-frame-inc" class="btn-stepper" aria-label="Increase frames">+</button>
+              <div class="frame-preset-chips">
+                <button type="button" class="chip-frame" data-frames="2">2</button>
+                <button type="button" class="chip-frame active" data-frames="3">3</button>
+                <button type="button" class="chip-frame" data-frames="4">4</button>
+                <button type="button" class="chip-frame" data-frames="5">5</button>
+              </div>
+            </div>
+            <p class="field-hint">Range: 1 to 8 frames. Frame slots remain stationary in memory.</p>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="action-buttons">
+            <button type="button" id="btn-run-simulation" class="btn btn-primary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              Run Simulation
+            </button>
+            <button type="button" id="btn-compare-all" class="btn btn-secondary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="12" width="4" height="9"></rect>
+                <rect x="10" y="7" width="4" height="14"></rect>
+                <rect x="17" y="3" width="4" height="18"></rect>
+              </svg>
+              Compare Algorithms
+            </button>
+          </div>
+        </section>
+
+      </aside>
+
+      <!-- Right Column: Visualization & Results -->
+      <section class="display-panel">
+        
+        <!-- Stale Simulation Input Warning Banner -->
+        <div class="sim-outdated-banner" id="sim-outdated-banner" style="display: none;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span><strong>Input Modified:</strong> Page reference sequence has changed. Click <strong>Run Simulation</strong> to simulate the new sequence.</span>
+        </div>
+
+        <!-- Metrics Cards Grid -->
+        <div class="metrics-grid" id="metrics-overview">
+          <div class="metric-card">
+            <span class="metric-title">Total References</span>
+            <div class="metric-value" id="val-total-pages">20</div>
+            <div class="metric-sub">Access sequence length</div>
+          </div>
+          <div class="metric-card hit-card">
+            <span class="metric-title">Page Hits</span>
+            <div class="metric-value text-hit" id="val-hits">5</div>
+            <div class="metric-sub" id="sub-hit-ratio">Hit Ratio: 25.00%</div>
+          </div>
+          <div class="metric-card fault-card">
+            <span class="metric-title">Page Faults</span>
+            <div class="metric-value text-fault" id="val-faults">15</div>
+            <div class="metric-sub" id="sub-fault-ratio">Fault Ratio: 75.00%</div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-title">Hit Ratio</span>
+            <div class="metric-value" id="val-hit-percentage">25.0%</div>
+            <div class="progress-bar-container">
+              <div class="progress-bar bg-hit" id="bar-hit-ratio" style="width: 25%;"></div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <span class="metric-title">Fault Ratio</span>
+            <div class="metric-value" id="val-fault-percentage">75.0%</div>
+            <div class="progress-bar-container">
+              <div class="progress-bar bg-fault" id="bar-fault-ratio" style="width: 75%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Memory Frame Visualizer (Hero Section) -->
+        <div class="card visualizer-card">
+          <div class="visualizer-header">
+            <div class="step-summary">
+              <span class="step-counter" id="step-counter-text">Step 0 / 20</span>
+              <div class="current-page-badge" id="current-page-badge">
+                Accessing Page: <strong id="step-current-page">7</strong>
+              </div>
+            </div>
+            <div class="step-result-badge" id="step-result-badge">
+              <span class="badge-status status-fault" id="step-status-tag">FAULT</span>
+              <span class="step-action-desc" id="step-action-desc">Loaded into Frame 0</span>
+            </div>
+          </div>
+
+          <!-- Memory Frame Slots Rack -->
+          <div class="memory-rack-container">
+            <div class="rack-label">PHYSICAL MEMORY FRAMES (RAM)</div>
+            <div class="memory-rack" id="memory-frames-rack" role="region" aria-label="Physical Memory Frame Slots">
+              <!-- Dynamically populated via visualizer.js -->
+            </div>
+          </div>
+
+          <!-- Playback Controls Bar -->
+          <div class="playback-controls">
+            <!-- Timeline Scrubber -->
+            <div class="timeline-row">
+              <span class="timeline-label">Step 0</span>
+              <input type="range" id="timeline-slider" min="0" max="19" value="0" step="1" aria-label="Simulation Timeline">
+              <span class="timeline-label" id="timeline-max-label">Step 19</span>
+            </div>
+
+            <!-- Control Buttons & Speed -->
+            <div class="controls-toolbar">
+              <div class="button-group">
+                <button type="button" id="btn-first" class="btn-ctrl" title="First step (Home)">⏮</button>
+                <button type="button" id="btn-prev" class="btn-ctrl" title="Previous step (Left Arrow)">◀</button>
+                <button type="button" id="btn-play-pause" class="btn-ctrl btn-play" title="Play / Pause (Spacebar)">
+                  <span id="play-pause-icon">▶</span>
+                  <span id="play-pause-label">Play</span>
+                </button>
+                <button type="button" id="btn-next" class="btn-ctrl" title="Next step (Right Arrow)">▶</button>
+                <button type="button" id="btn-last" class="btn-ctrl" title="Last step (End)">⏭</button>
+                <button type="button" id="btn-reset-vis" class="btn-ctrl" title="Reset to Start">↺ Reset</button>
+              </div>
+
+              <div class="speed-selector">
+                <span class="speed-label">Speed:</span>
+                <button type="button" class="btn-speed" data-speed="1200">0.5x</button>
+                <button type="button" class="btn-speed active" data-speed="800">1x</button>
+                <button type="button" class="btn-speed" data-speed="400">2x</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Simulation Execution History Table -->
+        <div class="card history-card">
+          <div class="card-header">
+            <h2 class="card-title">Step-by-Step Execution Trace</h2>
+            <span class="table-hint">Click any row to jump visualizer to that step</span>
+          </div>
+          <div class="history-table-wrapper" id="history-table-container">
+            <table class="history-table" id="history-table">
+              <thead>
+                <tr id="history-table-header">
+                  <th>Step</th>
+                  <th>Page</th>
+                  <th>Frame 0</th>
+                  <th>Frame 1</th>
+                  <th>Frame 2</th>
+                  <th>Outcome</th>
+                  <th>Evicted Page</th>
+                </tr>
+              </thead>
+              <tbody id="history-table-body">
+                <!-- Dynamically populated via visualizer.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Algorithm Comparison Section (Dynamically updated / revealed) -->
+        <div class="card comparison-card" id="comparison-section">
+          <div class="card-header">
+            <div class="comp-title-group">
+              <h2 class="card-title">Algorithm Comparison Analysis</h2>
+              <p class="card-subtitle">Evaluating FIFO, LRU, and Optimal on identical inputs</p>
+            </div>
+            <div class="winner-badge" id="winner-badge">
+              🏆 Best: <span id="winner-name">Optimal</span> (<span id="winner-faults">9</span> Faults)
+            </div>
+          </div>
+
+          <!-- Stale / Outdated Input Warning Banner -->
+          <div class="comp-outdated-banner" id="comp-outdated-banner" style="display: none;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <span><strong>Inputs Changed:</strong> Sequence or frame count has been modified since this comparison was generated. Click <strong>Compare All Algorithms</strong> to refresh.</span>
+          </div>
+
+          <!-- Comparison Table -->
+          <div class="comp-table-wrapper">
+            <table class="comp-table" id="comparison-table">
+              <thead>
+                <tr>
+                  <th>Algorithm</th>
+                  <th>Type</th>
+                  <th>Page Faults</th>
+                  <th>Page Hits</th>
+                  <th>Fault Ratio</th>
+                  <th>Hit Ratio</th>
+                  <th>Performance vs. Best</th>
+                </tr>
+              </thead>
+              <tbody id="comparison-table-body">
+                <!-- Populated via charts.js / app.js -->
+              </tbody>
+            </table>
+          </div>
+
+          <div class="optimal-note">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            <span><strong>Academic Note:</strong> Bélády's Optimal algorithm requires future knowledge of all page requests, making it unrealizable in practical operating systems. It serves as an upper bound on hit ratio for evaluating practical algorithms like FIFO and LRU.</span>
+          </div>
+
+          <!-- High-Precision Canvas Comparison Charts -->
+          <div class="charts-grid">
+            <div class="chart-box">
+              <h3 class="chart-title">Page Faults & Hits Comparison</h3>
+              <div class="canvas-wrapper">
+                <canvas id="chart-faults-canvas" width="460" height="260"></canvas>
+              </div>
+            </div>
+            <div class="chart-box">
+              <h3 class="chart-title">Hit Ratio (%) Comparison</h3>
+              <div class="canvas-wrapper">
+                <canvas id="chart-ratios-canvas" width="460" height="260"></canvas>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <div class="footer-container">
+      <div class="footer-left">
+        <strong>Memora</strong> — A Virtual Memory Simulator for Page Replacement Algorithm Analysis
+      </div>
+      <div class="footer-right">
+        <code>Hits + Faults = Total</code> • <code>Hit Ratio = H / N</code> • <code>Fault Ratio = F / N</code>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/charts.js"></script>
+  <script src="/static/js/visualizer.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

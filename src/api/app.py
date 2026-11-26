@@ -5,7 +5,8 @@ Initializes the Flask app, registers blueprints, configures CORS,
 and establishes consistent JSON error handlers.
 """
 
-from flask import Flask, jsonify
+import os
+from flask import Flask, jsonify, request, render_template
 from src.api.routes import api_bp
 
 try:
@@ -25,7 +26,17 @@ def create_app(test_config=None):
     Returns:
         Flask: Configured Flask application instance.
     """
-    app = Flask(__name__)
+    # Configure template and static directories relative to project root
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    template_dir = os.path.join(project_root, "templates")
+    static_dir = os.path.join(project_root, "static")
+
+    app = Flask(
+        __name__,
+        template_folder=template_dir,
+        static_folder=static_dir,
+        static_url_path="/static",
+    )
 
     # Default configuration
     app.config["JSON_SORT_KEYS"] = False
@@ -47,9 +58,12 @@ def create_app(test_config=None):
     # Register API blueprint under /api
     app.register_blueprint(api_bp, url_prefix="/api")
 
-    # Root route
+    # Root route: serves interactive HTML frontend to browsers, JSON API info to API clients
     @app.route("/", methods=["GET"])
     def index():
+        accept = request.headers.get("Accept", "")
+        if "text/html" in accept:
+            return render_template("index.html")
         return jsonify({
             "application": "Memora",
             "version": "1.0.0",
@@ -60,6 +74,11 @@ def create_app(test_config=None):
                 {"method": "POST", "path": "/api/compare",  "description": "Compare all algorithms"},
             ],
         }), 200
+
+    @app.route("/dashboard", methods=["GET"])
+    @app.route("/index.html", methods=["GET"])
+    def dashboard():
+        return render_template("index.html")
 
     # Consistent HTTP error handlers
     @app.errorhandler(400)

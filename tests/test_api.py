@@ -168,6 +168,39 @@ class TestMemoraAPI(unittest.TestCase):
         self.assertEqual(summary["fewest_faults"], 9)
         self.assertEqual(summary["best_algorithm"], "Optimal")
 
+    def test_compare_belady_anomaly_sequence(self):
+        """POST /api/compare with Bélády sequence [1,2,3,4,1,2,5,1,2,3,4,5] (3 frames).
+
+        Verifies exact algorithm counts:
+          - FIFO: 9 faults, 3 hits (hit_ratio 25.0%)
+          - LRU: 10 faults, 2 hits (hit_ratio 16.67%)
+          - Optimal: 7 faults, 5 hits (hit_ratio 41.67%)
+          - Best: Optimal (7 faults)
+        This ensures API output structure is consistent with comparison table & chart expectations.
+        """
+        belady_seq = [1, 2, 3, 4, 1, 2, 5, 1, 2, 3, 4, 5]
+        response = self.client.post("/api/compare", json={"sequence": belady_seq, "frames": 3})
+        self.assertEqual(response.status_code, 200)
+
+        data = response.get_json()
+        results = data["results"]
+        self.assertEqual(results["FIFO"]["faults"], 9)
+        self.assertEqual(results["FIFO"]["hits"], 3)
+        self.assertEqual(results["LRU"]["faults"], 10)
+        self.assertEqual(results["LRU"]["hits"], 2)
+        self.assertEqual(results["OPTIMAL"]["faults"], 7)
+        self.assertEqual(results["OPTIMAL"]["hits"], 5)
+
+        summary = data["summary"]
+        self.assertEqual(summary["fewest_faults"], 7)
+        self.assertEqual(summary["best_algorithm"], "Optimal")
+        self.assertEqual(summary["best_algorithms"], ["Optimal"])
+
+        # Also verify Bélády's anomaly for FIFO (3 frames -> 9 faults, 4 frames -> 10 faults)
+        res_4 = self.client.post("/api/compare", json={"sequence": belady_seq, "frames": 4})
+        self.assertEqual(res_4.status_code, 200)
+        self.assertEqual(res_4.get_json()["results"]["FIFO"]["faults"], 10)
+
     # =========================================================================
     # 4. Input Validation & Error Handling Tests
     # =========================================================================
@@ -295,6 +328,42 @@ class TestMemoraAPI(unittest.TestCase):
         self.assertEqual(res.status_code, 405)
         self.assertIn("error", res.get_json())
         self.assertEqual(res.get_json()["error"]["message"], "Method not allowed")
+
+    # =========================================================================
+    # 5. Frontend & Static Assets Tests (Phase 2)
+    # =========================================================================
+
+    def test_frontend_dashboard_served_on_html_accept(self):
+        """GET / with Accept: text/html serves the interactive HTML frontend."""
+        res = self.client.get("/", headers={"Accept": "text/html,application/xhtml+xml"})
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("text/html", res.content_type)
+        html = res.get_data(as_text=True)
+        self.assertIn("Memora", html)
+        self.assertIn("Virtual Memory Simulator", html)
+        self.assertIn("memory-frames-rack", html)
+
+    def test_frontend_dashboard_direct_route(self):
+        """GET /dashboard serves the interactive HTML frontend."""
+        res = self.client.get("/dashboard")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("text/html", res.content_type)
+        html = res.get_data(as_text=True)
+        self.assertIn("Memora", html)
+
+    def test_static_assets_served(self):
+        """Static CSS and JavaScript files are served correctly."""
+        # CSS
+        res_css = self.client.get("/static/css/style.css")
+        self.assertEqual(res_css.status_code, 200)
+        self.assertIn("text/css", res_css.content_type)
+        res_css.close()
+
+        # JavaScript files
+        for js_file in ["api.js", "charts.js", "visualizer.js", "app.js"]:
+            res_js = self.client.get(f"/static/js/{js_file}")
+            self.assertEqual(res_js.status_code, 200, f"Failed to serve /static/js/{js_file}")
+            res_js.close()
 
 
 if __name__ == "__main__":
